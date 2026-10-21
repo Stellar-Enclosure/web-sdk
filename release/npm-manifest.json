@@ -1,0 +1,540 @@
+{
+  "version": "0.0.1",
+  "npmScope": "@stellar-enclosure",
+  "packages": [
+    {
+      "name": "@stellar-enclosure/stellar-enclosure-web-shared",
+      "version": "0.0.1",
+      "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz",
+      "integrity": "sha512-dgZmONF7U0T3Dw81ua2aEBNjSp7BnkvQgowtJ+387xLXiuwHHBUvucM9VRWSiBfcLYG1TyDs/XqXuZsqQrXEHg==",
+      "shasum": "ed0ccf9c3ebeb2df1ad9dba157d8221db9a579e4",
+      "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.0.1.tgz",
+      "peerDependencies": {
+        "@ant-design/icons": "^6.3.2",
+        "@tanstack/react-query": "^5.101.4",
+        "antd": "^6.5.2",
+        "i18next": "^24.0.0",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
+        "react-i18next": "^15.0.0",
+        "react-router-dom": "^7.18.0"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "size": 3107,
+          "mode": 420
+        },
+        {
+          "path": "dist/admin-web-shared.js",
+          "size": 28165,
+          "mode": 420
+        },
+        {
+          "path": "dist/api/errors.d.ts",
+          "size": 620,
+          "mode": 420
+        },
+        {
+          "path": "dist/api/errors.d.ts.map",
+          "size": 680,
+          "mode": 420
+        },
+        {
+          "path": "dist/api/httpClient.d.ts",
+          "size": 524,
+          "mode": 420
+        },
+        {
+          "path": "dist/api/httpClient.d.ts.map",
+          "size": 540,
+          "mode": 420
+        },
+        {
+          "path": "dist/auth/gatewayAuthClient.d.ts",
+          "size": 1460,
+          "mode": 420
+        },
+        {
+          "path": "dist/auth/gatewayAuthClient.d.ts.map",
+          "size": 1406,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/AppErrorBoundary.d.ts",
+          "size": 634,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/AppErrorBoundary.d.ts.map",
+          "size": 691,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/PageHeader.d.ts",
+          "size": 442,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/PageHeader.d.ts.map",
+          "size": 467,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/PageState.d.ts",
+          "size": 841,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/PageState.d.ts.map",
+          "size": 563,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/PageTemplate.d.ts",
+          "size": 652,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/PageTemplate.d.ts.map",
+          "size": 672,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useFeatureQuery.d.ts",
+          "size": 635,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useFeatureQuery.d.ts.map",
+          "size": 765,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/usePermission.d.ts",
+          "size": 258,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/usePermission.d.ts.map",
+          "size": 228,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/en-US.d.ts",
+          "size": 112,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/en-US.d.ts.map",
+          "size": 199,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/index.d.ts",
+          "size": 650,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/index.d.ts.map",
+          "size": 645,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/zh-CN.d.ts",
+          "size": 938,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/zh-CN.d.ts.map",
+          "size": 175,
+          "mode": 420
+        },
+        {
+          "path": "dist/index.d.ts",
+          "size": 1646,
+          "mode": 420
+        },
+        {
+          "path": "dist/index.d.ts.map",
+          "size": 1280,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseFooter.d.ts",
+          "size": 553,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseFooter.d.ts.map",
+          "size": 326,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseHeader.d.ts",
+          "size": 539,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseHeader.d.ts.map",
+          "size": 382,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseLayout.d.ts",
+          "size": 478,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseLayout.d.ts.map",
+          "size": 399,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseSidebar.d.ts",
+          "size": 1232,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/EnterpriseSidebar.d.ts.map",
+          "size": 1077,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/types.d.ts",
+          "size": 3281,
+          "mode": 420
+        },
+        {
+          "path": "dist/layout/types.d.ts.map",
+          "size": 1626,
+          "mode": 420
+        },
+        {
+          "path": "dist/theme/ThemeProvider.d.ts",
+          "size": 198,
+          "mode": 420
+        },
+        {
+          "path": "dist/theme/ThemeProvider.d.ts.map",
+          "size": 229,
+          "mode": 420
+        },
+        {
+          "path": "dist/theme/tokens.d.ts",
+          "size": 995,
+          "mode": 420
+        },
+        {
+          "path": "dist/theme/tokens.d.ts.map",
+          "size": 250,
+          "mode": 420
+        },
+        {
+          "path": "dist/vite-plugin.js",
+          "size": 1809,
+          "mode": 420
+        },
+        {
+          "path": "dist/vite/faviconPlugin.d.ts",
+          "size": 730,
+          "mode": 420
+        },
+        {
+          "path": "dist/vite/faviconPlugin.d.ts.map",
+          "size": 381,
+          "mode": 420
+        },
+        {
+          "path": "favicon.png",
+          "size": 865346,
+          "mode": 420
+        },
+        {
+          "path": "package.json",
+          "size": 2303,
+          "mode": 420
+        }
+      ]
+    },
+    {
+      "name": "@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk",
+      "version": "0.0.1",
+      "filename": "stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
+      "integrity": "sha512-L/QY0ahz4coq3QA1d23Dk/y/g9G/WG7eha1JmHUskYYKj1cSykLHcGgS2DTcYpX1gS8HrFFeHprLkuQ5bv6xnw==",
+      "shasum": "4b69e7148e05b8d68a3e5f15392b3e297bab2555",
+      "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk/-/stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
+      "peerDependencies": {
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8"
+      },
+      "files": [
+        {
+          "path": "dist/client/Rbac3ApiClient.d.ts",
+          "size": 874,
+          "mode": 420
+        },
+        {
+          "path": "dist/client/Rbac3ApiClient.d.ts.map",
+          "size": 696,
+          "mode": 420
+        },
+        {
+          "path": "dist/errors.d.ts",
+          "size": 11229,
+          "mode": 420
+        },
+        {
+          "path": "dist/errors.d.ts.map",
+          "size": 2382,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/ActionGuard.d.ts",
+          "size": 429,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/ActionGuard.d.ts.map",
+          "size": 376,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/FieldGuard.d.ts",
+          "size": 559,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/FieldGuard.d.ts.map",
+          "size": 518,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/PermissionGuard.d.ts",
+          "size": 341,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/PermissionGuard.d.ts.map",
+          "size": 371,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/Rbac3Guards.test.d.ts",
+          "size": 89,
+          "mode": 420
+        },
+        {
+          "path": "dist/guards/Rbac3Guards.test.d.ts.map",
+          "size": 158,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useActiveRoles.d.ts",
+          "size": 317,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useActiveRoles.d.ts.map",
+          "size": 164,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/usePermission.d.ts",
+          "size": 112,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/usePermission.d.ts.map",
+          "size": 179,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useRbac3Authorization.d.ts",
+          "size": 146,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useRbac3Authorization.d.ts.map",
+          "size": 178,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useRoleActivationCandidates.d.ts",
+          "size": 220,
+          "mode": 420
+        },
+        {
+          "path": "dist/hooks/useRoleActivationCandidates.d.ts.map",
+          "size": 191,
+          "mode": 420
+        },
+        {
+          "path": "dist/index.d.ts",
+          "size": 662,
+          "mode": 420
+        },
+        {
+          "path": "dist/index.d.ts.map",
+          "size": 443,
+          "mode": 420
+        },
+        {
+          "path": "dist/index.js",
+          "size": 15445,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/Rbac3Provider.d.ts",
+          "size": 864,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/Rbac3Provider.d.ts.map",
+          "size": 697,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/Rbac3Provider.test.d.ts",
+          "size": 59,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/Rbac3Provider.test.d.ts.map",
+          "size": 143,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/rbac3StateMachine.d.ts",
+          "size": 1351,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/rbac3StateMachine.d.ts.map",
+          "size": 1356,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/rbac3StateMachine.test.d.ts",
+          "size": 63,
+          "mode": 420
+        },
+        {
+          "path": "dist/provider/rbac3StateMachine.test.d.ts.map",
+          "size": 150,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/FrontendResourceRegistry.d.ts",
+          "size": 951,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/FrontendResourceRegistry.d.ts.map",
+          "size": 735,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/FrontendResourceRegistry.test.d.ts",
+          "size": 70,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/FrontendResourceRegistry.test.d.ts.map",
+          "size": 164,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/Rbac3ComponentRegistry.d.ts",
+          "size": 611,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/Rbac3ComponentRegistry.d.ts.map",
+          "size": 591,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/Rbac3ComponentRegistry.test.d.ts",
+          "size": 68,
+          "mode": 420
+        },
+        {
+          "path": "dist/registry/Rbac3ComponentRegistry.test.d.ts.map",
+          "size": 160,
+          "mode": 420
+        },
+        {
+          "path": "dist/routing/resolveDefaultRoute.d.ts",
+          "size": 449,
+          "mode": 420
+        },
+        {
+          "path": "dist/routing/resolveDefaultRoute.d.ts.map",
+          "size": 390,
+          "mode": 420
+        },
+        {
+          "path": "dist/types.d.ts",
+          "size": 12323,
+          "mode": 420
+        },
+        {
+          "path": "dist/types.d.ts.map",
+          "size": 11816,
+          "mode": 420
+        },
+        {
+          "path": "dist/types.test.d.ts",
+          "size": 51,
+          "mode": 420
+        },
+        {
+          "path": "dist/types.test.d.ts.map",
+          "size": 114,
+          "mode": 420
+        },
+        {
+          "path": "package.json",
+          "size": 1352,
+          "mode": 420
+        }
+      ]
+    }
+  ],
+  "consumers": [
+    {
+      "repository": "tianshu-web",
+      "offlineInstall": "PASS",
+      "buildAndTests": "PASS"
+    },
+    {
+      "repository": "yuheng-web",
+      "offlineInstall": "PASS",
+      "buildAndTests": "PASS"
+    },
+    {
+      "repository": "yaoguang-web",
+      "offlineInstall": "PASS",
+      "buildAndTests": "PASS"
+    },
+    {
+      "repository": "tianquan-jianshen-web",
+      "offlineInstall": "PASS",
+      "buildAndTests": "PASS"
+    },
+    {
+      "repository": "tianquan-shoubing-web",
+      "offlineInstall": "PASS",
+      "buildAndTests": "PASS"
+    },
+    {
+      "repository": "portal",
+      "offlineInstall": "PASS",
+      "buildAndTests": "PASS"
+    }
+  ],
+  "registryColdInstall": "PENDING_USER_PUBLICATION",
+  "sdkTests": "47 PASS",
+  "verificationEvidence": "Stellar-Enclosure-Parent/migration/validation.json"
+}

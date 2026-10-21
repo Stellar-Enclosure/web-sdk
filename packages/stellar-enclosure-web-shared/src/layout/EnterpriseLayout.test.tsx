@@ -1,0 +1,201 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { initI18n } from '../i18n'
+import { EnterpriseLayout } from './EnterpriseLayout'
+import type { EnterpriseLayoutConfig } from './types'
+
+const config: EnterpriseLayoutConfig = {
+  platformName: 'Tianshu Admin',
+  navigation: [
+    { key: 'runtime', label: '运行状态', children: [
+      { key: 'registry', label: '服务注册', path: '/registry' },
+    ] },
+    { key: 'configuration', label: '配置管理', children: [
+      { key: 'configs', label: '配置资源', path: '/configs' },
+    ] },
+  ],
+  user: { name: 'Mario', menu: [{ key: 'logout', label: '退出登录' }] },
+  footer: { version: '0.0.1' },
+}
+
+const nestedConfig: EnterpriseLayoutConfig = {
+  platformName: 'Nested Admin',
+  navigation: [{
+    key: 'iam', label: 'IAM',
+    children: [{
+      key: 'authorization', label: '授权',
+      children: [{key: 'roles', label: '角色', path: '/iam/roles'}],
+    }],
+  }],
+}
+
+const setViewport = (wide: boolean) => {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: wide,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }))
+}
+
+const renderLayoutWith = (layoutConfig: EnterpriseLayoutConfig, initialPath = '/registry') => render(
+  <MemoryRouter initialEntries={[initialPath]}>
+    <Routes>
+      <Route
+        path="/"
+        element={(
+          <EnterpriseLayout config={layoutConfig}>
+            <Outlet />
+          </EnterpriseLayout>
+        )}
+      >
+        <Route path="registry" element={<div>注册页内容</div>} />
+        <Route path="configs" element={<div>配置页内容</div>} />
+        <Route path="iam/roles" element={<div>角色页内容</div>} />
+      </Route>
+    </Routes>
+  </MemoryRouter>,
+)
+
+const renderLayout = (initialPath = '/registry') => renderLayoutWith(config, initialPath)
+
+beforeAll(async () => {
+  await initI18n({ lng: 'zh-CN', resources: { 'zh-CN': {} } })
+})
+
+beforeEach(() => {
+  setViewport(true)
+})
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
+describe('EnterpriseLayout', () => {
+  it('renders xingyuan name, navigation, user and footer on desktop', () => {
+    renderLayout()
+
+    expect(screen.getByText('Tianshu Admin')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '主菜单' })).toBeInTheDocument()
+    expect(screen.queryByRole('menu', { name: '主导航' })).not.toBeInTheDocument()
+    expect(screen.getByText('服务注册')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('配置管理'))
+    expect(screen.getByText('配置资源')).toBeInTheDocument()
+    expect(screen.getByText('Mario')).toBeInTheDocument()
+    expect(screen.getByText('版本 v0.0.1')).toBeInTheDocument()
+    expect(screen.getByText(`© ${new Date().getFullYear()} Stellar Enclosure · Tianshu Admin`))
+      .toBeInTheDocument()
+  })
+
+  it('keeps the domain menu while hiding duplicate embedded shell regions', () => {
+    renderLayoutWith({...config, hideHeader: true, hideFooter: true})
+
+    expect(screen.queryByText('Tianshu Admin')).not.toBeInTheDocument()
+    expect(screen.queryByText(/版本 v5\.3\.2/)).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', {name: '主菜单'})).toBeInTheDocument()
+    expect(screen.getByText('服务注册')).toBeInTheDocument()
+  })
+
+  it('highlights the navigation item matching the current route', () => {
+    const { unmount } = renderLayout('/configs')
+
+    const selected = screen.getByText('配置资源').closest('.ant-menu-item')
+    expect(selected).toHaveClass('ant-menu-item-selected')
+    unmount()
+
+    renderLayout('/registry')
+    expect(screen.getByText('服务注册').closest('.ant-menu-item'))
+      .toHaveClass('ant-menu-item-selected')
+  })
+
+  it('navigates to the target route when a navigation item is clicked', async () => {
+    renderLayout()
+
+    fireEvent.click(screen.getByText('配置管理'))
+    fireEvent.click(screen.getByText('配置资源'))
+    expect(await screen.findByText('配置页内容')).toBeInTheDocument()
+  })
+
+  it('collapses navigation into a left drawer on narrow screens', async () => {
+    setViewport(false)
+    renderLayout()
+
+    expect(screen.queryByRole('navigation', { name: '主菜单' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '打开导航' }))
+
+    const drawer = await screen.findByRole('dialog')
+    expect(drawer).toBeInTheDocument()
+    expect(screen.getByText('运行状态')).toBeInTheDocument()
+    expect(screen.getByText('配置管理')).toBeInTheDocument()
+  })
+
+  it('renders nested navigation and navigates leaf routes', async () => {
+    setViewport(false)
+    render(
+      <MemoryRouter initialEntries={['/iam/roles']}>
+        <Routes>
+          <Route path="*" element={(
+            <EnterpriseLayout config={nestedConfig}>
+              <Outlet />
+            </EnterpriseLayout>
+          )}>
+            <Route path="iam/roles" element={<div>角色页内容</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '打开导航' }))
+    fireEvent.click(screen.getByText('IAM'))
+    fireEvent.click(screen.getByText('授权'))
+    expect(await screen.findByText('角色')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('角色'))
+    expect(await screen.findByText('角色页内容')).toBeInTheDocument()
+  })
+
+  it('uses the longest active path prefix for a deep link', () => {
+    const deepLinkConfig: EnterpriseLayoutConfig = {
+      platformName: 'Deep Link Admin',
+      navigation: [{
+        key: 'yuheng', label: '网关治理', children: [
+          {key: 'catalog', label: '接口目录', path: '/interface-catalog', activePathPrefixes: ['/operations']},
+        ],
+      }],
+    }
+    render(
+      <MemoryRouter initialEntries={['/operations/op-1']}>
+        <EnterpriseLayout config={deepLinkConfig}><div>详情</div></EnterpriseLayout>
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('接口目录').closest('.ant-menu-item')).toHaveClass('ant-menu-item-selected')
+  })
+
+  it('ignores malformed parent paths without breaking valid child selection', () => {
+    const malformedConfig: EnterpriseLayoutConfig = {
+      platformName: 'Malformed Navigation Admin',
+      navigation: [{
+        key: 'parent',
+        label: '父级',
+        path: undefined,
+        activePathPrefixes: [undefined as unknown as string],
+        children: [{key: 'child', label: '子级', path: '/child'}],
+      }],
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/child/detail']}>
+        <EnterpriseLayout config={malformedConfig}>
+          <div>子页面</div>
+        </EnterpriseLayout>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('子级').closest('.ant-menu-item')).toHaveClass('ant-menu-item-selected')
+  })
+})
