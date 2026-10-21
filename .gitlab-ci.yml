@@ -1,0 +1,39 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+stages:
+  - test
+
+default:
+  image: node:24-bookworm
+  interruptible: true
+
+variables:
+  STELLAR_USE_SOURCE_BOOTSTRAP: "true"
+  npm_config_cache: "$CI_PROJECT_DIR/.cache/npm"
+  npm_config_audit: "false"
+  npm_config_fund: "false"
+
+build-and-unit-tests:
+  stage: test
+  timeout: 45 minutes
+  cache:
+    key:
+      prefix: npm-node24
+      files:
+        - package-lock.json
+    paths:
+      - .cache/npm/
+  script:
+    - npm ci
+    - npm run build
+    - npm test
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - packages/*/dist/

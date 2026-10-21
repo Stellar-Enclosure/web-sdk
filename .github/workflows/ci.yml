@@ -1,4 +1,4 @@
-name: Validate
+name: Build and unit tests
 on:
   push:
   pull_request:
