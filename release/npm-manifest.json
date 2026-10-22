@@ -535,6 +535,5 @@
     }
   ],
   "registryColdInstall": "PENDING_USER_PUBLICATION",
-  "sdkTests": "47 PASS",
-  "verificationEvidence": "Stellar-Enclosure-Parent/migration/validation.json"
+  "sdkTests": "47 PASS"
 }

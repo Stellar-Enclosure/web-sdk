@@ -8,7 +8,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index]
   const value = process.argv[index + 1]
   if (!['--workspace', '--cache', '--output', '--phase', '--consumer', '--online'].includes(key) || !value || args.has(key)) {
-    throw new Error('Usage: verify-migration-consumers.mjs --workspace ABS --cache ABS --output ABS [--phase prepare|verify]')
+    throw new Error('Usage: verify-consumers.mjs --workspace ABS --cache ABS --output ABS [--phase prepare|verify]')
   }
   args.set(key, value)
 }
