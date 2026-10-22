@@ -4,7 +4,9 @@
   "type": "module",
   "files": [
     "dist",
-    "favicon.png"
+    "favicon.png",
+    "LICENSE-MIT",
+    "LICENSE-LGPL-2.1"
   ],
   "main": "./dist/admin-web-shared.js",
   "types": "./dist/index.d.ts",
@@ -23,8 +25,10 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "lint": "eslint .",
-    "release:patch": "npm version patch --no-git-tag-version && npm install --legacy-peer-deps && npm run build && npm publish",
-    "release:minor": "npm version minor --no-git-tag-version && npm install --legacy-peer-deps && npm run build && npm publish"
+    "release:patch": "npm version patch --no-git-tag-version && npm publish",
+    "release:minor": "npm version minor --no-git-tag-version && npm publish",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
   },
   "peerDependencies": {
     "@ant-design/icons": "^6.3.2",
@@ -62,7 +66,8 @@
     "vitest": "^4.1.10"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
@@ -72,5 +77,6 @@
   "homepage": "https://github.com/Stellar-Enclosure/web-sdk#readme",
   "bugs": {
     "url": "https://github.com/Stellar-Enclosure/web-sdk/issues"
-  }
+  },
+  "license": "(MIT OR LGPL-2.1-only)"
 }

@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "LICENSE-MIT",
+    "LICENSE-LGPL-2.1"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -18,7 +20,9 @@
     "build": "vite build && tsc --emitDeclarationOnly",
     "typecheck": "tsc --noEmit --pretty false",
     "test": "tsc --noEmit --pretty false && vitest run",
-    "lint": "tsc --noEmit --pretty false"
+    "lint": "tsc --noEmit --pretty false",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
   },
   "peerDependencies": {
     "react": "^19.2.8",
@@ -36,7 +40,8 @@
     "vitest": "^4.1.10"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
@@ -46,5 +51,6 @@
   "homepage": "https://github.com/Stellar-Enclosure/web-sdk#readme",
   "bugs": {
     "url": "https://github.com/Stellar-Enclosure/web-sdk/issues"
-  }
+  },
+  "license": "(MIT OR LGPL-2.1-only)"
 }

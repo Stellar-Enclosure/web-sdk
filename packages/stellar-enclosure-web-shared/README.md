@@ -33,18 +33,14 @@ const config: EnterpriseLayoutConfig = {
 
 ## 发布
 
-实际 npm 发布包为 `@stellar-enclosure/stellar-enclosure-web-shared`；控制台保留
-`@stellar-enclosure/stellar-enclosure-web-shared` 源码 import，通过 npm alias 指向此制品。
-`0.2.5` 包含当前源码的无密码 OIDC 导航、CSRF logout 与 `remoteState` 契约；
-发布前须验证源码测试和实际打包产物，不能仅检查版本号。
-
+实际 npm 包为 `@stellar-enclosure/stellar-enclosure-web-shared`，初始版本为 `0.0.1`。
+在 `web-sdk` 仓库根目录执行：
 
 ```bash
-npm run release:patch   # 0.1.x 补丁版本：自动升版本号（不打 git tag）+ 构建 + npm publish
-npm run release:minor   # 次版本
+npm ci
+npm run release:shared -- --dry-run
+npm run release:shared
 ```
 
-注意事项：
-
-- `build` 的 `prebuild` 会从仓库根复制 `favicon.png` 进包内，`postbuild` 会删除 `node_modules`（如需继续本地开发请重新 `npm install --legacy-peer-deps`）。
-- 发布后，获准接入的业务 Web 按现有 npm alias 和锁文件安装 registry 制品。本轮 `0.2.5` 只更新授柄、鉴神自身；其他平台和模板接入另行安排。
+实际发布前需完成 npm 登录并具有 `@stellar-enclosure` 组织发布权限。发布执行包内测试，打包重建 `dist/`，固定使用 npmjs 公共仓库。后续版本单独通过 `npm version patch --workspace @stellar-enclosure/stellar-enclosure-web-shared --no-git-tag-version` 更新。
+完整校验、两种独立包的命令和精确 tarball 发布方式见 [仓库发布说明](https://github.com/Stellar-Enclosure/web-sdk#publish-to-npmjs)。

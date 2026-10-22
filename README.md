@@ -24,7 +24,46 @@ node scripts/verify-consumers.mjs \
   --phase verify --online true
 ```
 
-Publish the exact verified tarballs from `dist/npm-release` with `npm publish <tarball> --access public`. The root workspace and all applications remain private. `release/npm-manifest.json` records actual integrity values. Publication is a separate user action.
+The consumer verifier checks the initial SDK tarballs against the application locks. After changing a package's publishable contents before its first release, run it with `--phase prepare` to refresh those locks, then `--phase verify` to check all six consumers.
+
+## Publish to npmjs
+
+Only these two packages are public. The workspace root and all frontend applications remain `private: true`. Each package pins `https://registry.npmjs.org/` and public access in `publishConfig`. Publishing runs its tests through `prepublishOnly`, and packing rebuilds `dist/` through `prepack`.
+
+Run from this repository with Node 24/npm 11 and npm organization access to `@stellar-enclosure`:
+
+```bash
+npm ci
+
+# Test both packages, build them and inspect the publication file lists.
+npm run release:check
+
+# Rehearse each independent publication without uploading.
+npm run release:shared -- --dry-run
+npm run release:jianshen -- --dry-run
+
+# Authenticate locally, then publish only the intended package.
+npm login --registry https://registry.npmjs.org/
+npm run release:shared
+npm run release:jianshen
+```
+
+`npm login` may require browser authentication; perform it yourself in your local publishing session. For subsequent releases, choose each package's version explicitly and commit the updated workspace lock:
+
+```bash
+npm version patch --workspace @stellar-enclosure/stellar-enclosure-web-shared --no-git-tag-version
+# Or version the React SDK independently:
+npm version patch --workspace @stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk --no-git-tag-version
+```
+
+Do not repeat a published name/version. Update the applications' SDK versions and locks when adopting a new release. Git pushes do not publish; no credentials belong in this repository.
+
+When releasing the exact tarballs already checked by the consumer verifier, use the files and integrity values in its output `npm-manifest.json`:
+
+```bash
+npm publish dist/npm-release/stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz --access public --registry https://registry.npmjs.org/
+npm publish dist/npm-release/stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz --access public --registry https://registry.npmjs.org/
+```
 
 ## Compatibility and publication
 

@@ -6,8 +6,8 @@
       "name": "@stellar-enclosure/stellar-enclosure-web-shared",
       "version": "0.0.1",
       "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz",
-      "integrity": "sha512-dgZmONF7U0T3Dw81ua2aEBNjSp7BnkvQgowtJ+387xLXiuwHHBUvucM9VRWSiBfcLYG1TyDs/XqXuZsqQrXEHg==",
-      "shasum": "ed0ccf9c3ebeb2df1ad9dba157d8221db9a579e4",
+      "integrity": "sha512-1X0ghDgPwyatsG8GppMjZUk22hIzJ8LgQzY/aGsTuBwBE/qPNoKCe/y8TnLNxtQeop9JtGuSv1N1KUh4dF/b8g==",
+      "shasum": "520ce6ae6e4bb5d4a90bc89cb9b234d37d23c047",
       "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.0.1.tgz",
       "peerDependencies": {
         "@ant-design/icons": "^6.3.2",
@@ -21,8 +21,18 @@
       },
       "files": [
         {
+          "path": "LICENSE-LGPL-2.1",
+          "size": 26526,
+          "mode": 420
+        },
+        {
+          "path": "LICENSE-MIT",
+          "size": 1062,
+          "mode": 420
+        },
+        {
           "path": "README.md",
-          "size": 3107,
+          "size": 2872,
           "mode": 420
         },
         {
@@ -252,7 +262,7 @@
         },
         {
           "path": "package.json",
-          "size": 2303,
+          "size": 2396,
           "mode": 420
         }
       ]
@@ -261,14 +271,29 @@
       "name": "@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk",
       "version": "0.0.1",
       "filename": "stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
-      "integrity": "sha512-L/QY0ahz4coq3QA1d23Dk/y/g9G/WG7eha1JmHUskYYKj1cSykLHcGgS2DTcYpX1gS8HrFFeHprLkuQ5bv6xnw==",
-      "shasum": "4b69e7148e05b8d68a3e5f15392b3e297bab2555",
+      "integrity": "sha512-dK5+9LY9U9/MA96UbHmqNPM1hNbu6eavb5pVKWJqnT5wREKZSyVWtJmMo1bgS67tgX+cK8f9vRZRj+t0UQIgQA==",
+      "shasum": "53236cb7de45d3a4b178ef0eb2d8b15dcc9605f1",
       "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk/-/stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
       "peerDependencies": {
         "react": "^19.2.8",
         "react-dom": "^19.2.8"
       },
       "files": [
+        {
+          "path": "LICENSE-LGPL-2.1",
+          "size": 26526,
+          "mode": 420
+        },
+        {
+          "path": "LICENSE-MIT",
+          "size": 1062,
+          "mode": 420
+        },
+        {
+          "path": "README.md",
+          "size": 715,
+          "mode": 420
+        },
         {
           "path": "dist/client/Rbac3ApiClient.d.ts",
           "size": 874,
@@ -496,7 +521,7 @@
         },
         {
           "path": "package.json",
-          "size": 1352,
+          "size": 1547,
           "mode": 420
         }
       ]
@@ -534,6 +559,5 @@
       "buildAndTests": "PASS"
     }
   ],
-  "registryColdInstall": "PENDING_USER_PUBLICATION",
-  "sdkTests": "47 PASS"
+  "registryColdInstall": "PENDING_USER_PUBLICATION"
 }

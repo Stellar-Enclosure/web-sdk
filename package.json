@@ -9,6 +9,9 @@
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "release:check": "npm test && npm pack --workspaces --dry-run",
+    "release:shared": "npm publish --workspace @stellar-enclosure/stellar-enclosure-web-shared --access public --registry https://registry.npmjs.org/",
+    "release:jianshen": "npm publish --workspace @stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk --access public --registry https://registry.npmjs.org/"
   }
 }
