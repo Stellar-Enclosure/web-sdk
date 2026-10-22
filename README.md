@@ -1,6 +1,17 @@
 # web-sdk
 
-Stellar Enclosure frontend. All first-party modules start at **0.0.1**.
+Shared React UI, browser authentication and authorization SDKs for the Stellar Enclosure portal and five platform consoles. All first-party modules start at **0.0.1**.
+
+## Packages and capabilities
+
+| Public package | Function | Source and usage |
+|---|---|---|
+| `@stellar-enclosure/stellar-enclosure-web-shared` | Theme tokens, enterprise header/footer/layout, page/loading/error components, typed HTTP/error handling, Edge BFF session/CSRF/logout client, i18n and shared hooks. Its `/vite-plugin` export supplies the favicon plugin. | [Package README](packages/stellar-enclosure-web-shared/README.md), [public exports](packages/stellar-enclosure-web-shared/src/index.ts) |
+| `@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk` | Typed RBAC3 client/provider/state machine; role candidates and activation; permission, action and field guards; frontend resource/component registries and default-route selection. | [Package README](packages/stellar-enclosure-tianquan-jianshen-react-sdk/README.md), [public exports](packages/stellar-enclosure-tianquan-jianshen-react-sdk/src/index.ts) |
+
+The shared package is consumed by `portal`, `tianshu-web`, `yuheng-web`, `yaoguang-web`, `tianquan-jianshen-web` and `tianquan-shoubing-web`; the Jianshen console also consumes the RBAC3 SDK. Shared UI renders navigation supplied by the application; Jianshen-specific authorization belongs to the RBAC3 SDK. Browser guards support UI behavior while server-side authorization remains authoritative.
+
+The workspace owns SDK builds, tests, package checks and [consumer verification](scripts/verify-consumers.mjs). It contains no platform backend or executable console. The root is private; only the two packages below are publication units.
 
 ## Build and test
 
