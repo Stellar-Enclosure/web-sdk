@@ -17,6 +17,7 @@ export interface EnterpriseSidebarProps {
   readonly platformName: string
   readonly actions?: ReactNode
   readonly onNavigate?: (item: EnterpriseNavigationItem) => void
+  readonly navigationLabel?: string
 }
 
 export const EnterpriseSidebar = ({
@@ -32,6 +33,7 @@ export const EnterpriseSidebar = ({
   platformName,
   actions,
   onNavigate,
+  navigationLabel = '主菜单',
 }: EnterpriseSidebarProps) => {
   const {token} = theme.useToken()
   const navigate = useNavigate()
@@ -43,9 +45,9 @@ export const EnterpriseSidebar = ({
     if (mobile) onDrawerClose()
   }
   const menu = (
-    <nav aria-label="主菜单">
+    <nav aria-label={navigationLabel}>
       <Menu
-        aria-label="主菜单"
+        aria-label={navigationLabel}
         mode="inline"
         items={items.map((item) => toMenuItem(item, collapsed))}
         selectedKeys={selectedKey ? [selectedKey] : []}

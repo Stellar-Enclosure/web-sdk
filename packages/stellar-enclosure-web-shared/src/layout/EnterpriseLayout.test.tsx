@@ -78,6 +78,16 @@ afterEach(() => {
 })
 
 describe('EnterpriseLayout', () => {
+  it('uses host-provided language bundle labels without changing the shared default language', () => {
+    renderLayoutWith({...config, labels: {
+      mainMenu: 'Company navigation', userMenu: 'Account menu', openNavigation: 'Open menu', version: 'Release',
+    }})
+    expect(screen.getByRole('navigation', {name: 'Company navigation'})).toBeInTheDocument()
+    expect(screen.getByRole('button', {name: 'Account menu'})).toBeInTheDocument()
+    expect(screen.getByText('Release v0.0.1')).toBeInTheDocument()
+    expect(screen.queryByText('版本 v0.0.1')).not.toBeInTheDocument()
+  })
+
   it('renders xingyuan name, navigation, user and footer on desktop', () => {
     renderLayout()
 

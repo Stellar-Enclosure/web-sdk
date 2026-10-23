@@ -55,7 +55,7 @@ export const EnterpriseLayout = ({config, children}: EnterpriseLayoutProps) => {
         {children}
       </Layout.Content>
       {config.hideFooter !== true && (
-        <EnterpriseFooter platformName={config.platformName} {...config.footer}/>
+        <EnterpriseFooter platformName={config.platformName} labels={config.labels} {...config.footer}/>
       )}
     </Layout>
   )
@@ -68,6 +68,7 @@ export const EnterpriseLayout = ({config, children}: EnterpriseLayoutProps) => {
           logo={config.logo}
           user={config.user}
           actions={config.actions}
+          labels={config.labels}
           mobileNavigationVisible={!full && navigation.length > 0}
           onOpenNavigation={() => setDrawerOpen(true)}
         />
@@ -85,6 +86,7 @@ export const EnterpriseLayout = ({config, children}: EnterpriseLayoutProps) => {
             drawerOpen={drawerOpen}
             onDrawerClose={() => setDrawerOpen(false)}
             platformName={config.platformName}
+            navigationLabel={config.labels?.mainMenu}
             actions={config.actions}
             onNavigate={config.onNavigate}
           />

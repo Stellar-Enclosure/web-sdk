@@ -6,8 +6,8 @@
       "name": "@stellar-enclosure/stellar-enclosure-web-shared",
       "version": "0.0.1",
       "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz",
-      "integrity": "sha512-1X0ghDgPwyatsG8GppMjZUk22hIzJ8LgQzY/aGsTuBwBE/qPNoKCe/y8TnLNxtQeop9JtGuSv1N1KUh4dF/b8g==",
-      "shasum": "520ce6ae6e4bb5d4a90bc89cb9b234d37d23c047",
+      "integrity": "sha512-q51J/6e6hKnPhJCI0mhJzISHPhC22phVOHIqj2NFpdUK1TXQf+AIJTQgKkHjZTYOy9m8Z7y/+j4wl+37DO8kOA==",
+      "shasum": "f52366bd2a53154fe0ef2abc36e6ab38981148e6",
       "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.0.1.tgz",
       "peerDependencies": {
         "@ant-design/icons": "^6.3.2",
@@ -32,12 +32,12 @@
         },
         {
           "path": "README.md",
-          "size": 2872,
+          "size": 7512,
           "mode": 420
         },
         {
           "path": "dist/admin-web-shared.js",
-          "size": 28165,
+          "size": 32571,
           "mode": 420
         },
         {
@@ -151,6 +151,16 @@
           "mode": 420
         },
         {
+          "path": "dist/i18n/pageI18n.d.ts",
+          "size": 1834,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/pageI18n.d.ts.map",
+          "size": 1857,
+          "mode": 420
+        },
+        {
           "path": "dist/i18n/zh-CN.d.ts",
           "size": 938,
           "mode": 420
@@ -162,17 +172,17 @@
         },
         {
           "path": "dist/index.d.ts",
-          "size": 1646,
+          "size": 1885,
           "mode": 420
         },
         {
           "path": "dist/index.d.ts.map",
-          "size": 1280,
+          "size": 1455,
           "mode": 420
         },
         {
           "path": "dist/layout/EnterpriseFooter.d.ts",
-          "size": 553,
+          "size": 561,
           "mode": 420
         },
         {
@@ -182,7 +192,7 @@
         },
         {
           "path": "dist/layout/EnterpriseHeader.d.ts",
-          "size": 539,
+          "size": 547,
           "mode": 420
         },
         {
@@ -202,22 +212,22 @@
         },
         {
           "path": "dist/layout/EnterpriseSidebar.d.ts",
-          "size": 1232,
+          "size": 1288,
           "mode": 420
         },
         {
           "path": "dist/layout/EnterpriseSidebar.d.ts.map",
-          "size": 1077,
+          "size": 1118,
           "mode": 420
         },
         {
           "path": "dist/layout/types.d.ts",
-          "size": 3281,
+          "size": 3629,
           "mode": 420
         },
         {
           "path": "dist/layout/types.d.ts.map",
-          "size": 1626,
+          "size": 1917,
           "mode": 420
         },
         {
@@ -530,32 +540,32 @@
   "consumers": [
     {
       "repository": "tianshu-web",
-      "offlineInstall": "PASS",
+      "offlineInstall": "NOT_RUN",
       "buildAndTests": "PASS"
     },
     {
       "repository": "yuheng-web",
-      "offlineInstall": "PASS",
+      "offlineInstall": "NOT_RUN",
       "buildAndTests": "PASS"
     },
     {
       "repository": "yaoguang-web",
-      "offlineInstall": "PASS",
+      "offlineInstall": "NOT_RUN",
       "buildAndTests": "PASS"
     },
     {
       "repository": "tianquan-jianshen-web",
-      "offlineInstall": "PASS",
+      "offlineInstall": "NOT_RUN",
       "buildAndTests": "PASS"
     },
     {
       "repository": "tianquan-shoubing-web",
-      "offlineInstall": "PASS",
+      "offlineInstall": "NOT_RUN",
       "buildAndTests": "PASS"
     },
     {
       "repository": "portal",
-      "offlineInstall": "PASS",
+      "offlineInstall": "NOT_RUN",
       "buildAndTests": "PASS"
     }
   ],

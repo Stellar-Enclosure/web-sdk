@@ -43,10 +43,20 @@ export interface EnterpriseHeaderConfig {
   /** 全局操作区，渲染在用户区左侧（连接状态、作用域选择器等平台已有能力）。 */
   readonly actions?: ReactNode
   readonly user?: EnterpriseUser
+  /** Optional text supplied by the host's tenant-scoped language bundle. */
+  readonly labels?: EnterpriseLayoutLabels
+}
+
+export interface EnterpriseLayoutLabels {
+  readonly mainMenu?: string
+  readonly userMenu?: string
+  readonly openNavigation?: string
+  readonly version?: string
 }
 
 /** Footer 配置。只展示仓库中真实存在的基础信息，不虚构联系信息与备案等。 */
 export interface EnterpriseFooterConfig {
+  readonly labels?: EnterpriseLayoutLabels
   /** 版权主体名，缺省为 `Stellar Enclosure`。 */
   readonly copyrightName?: string
   /** 版本号（如平台 package.json 中的 version）。 */

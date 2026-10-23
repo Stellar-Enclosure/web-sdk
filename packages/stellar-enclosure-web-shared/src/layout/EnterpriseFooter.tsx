@@ -15,6 +15,7 @@ export const EnterpriseFooter = ({
   copyrightName = 'Stellar Enclosure',
   version,
   extra,
+  labels,
 }: EnterpriseFooterProps) => {
   const { token } = theme.useToken()
   const t = useT()
@@ -37,7 +38,7 @@ export const EnterpriseFooter = ({
           {extra}
           {version && (
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-              {t('layout.version', '版本')} v{version}
+              {labels?.version ?? t('layout.version', '版本')} v{version}
             </Typography.Text>
           )}
         </Space>

@@ -16,6 +16,7 @@ export const EnterpriseHeader = ({
   logo,
   actions,
   user,
+  labels,
   mobileNavigationVisible = false,
   onOpenNavigation,
 }: EnterpriseHeaderProps) => {
@@ -41,12 +42,12 @@ export const EnterpriseHeader = ({
   const userArea = user && (
     userMenuItems ? (
       <Dropdown menu={{items: userMenuItems}} placement="bottomRight" trigger={['click']}>
-        <Button type="text" aria-label={t('layout.userMenu', '用户菜单')} style={{height: 44, paddingInline: 8}}>
+        <Button type="text" aria-label={labels?.userMenu ?? t('layout.userMenu', '用户菜单')} style={{height: 44, paddingInline: 8}}>
           <Space size={8}>{userAvatar}{full && <Typography.Text>{user.name}</Typography.Text>}</Space>
         </Button>
       </Dropdown>
     ) : (
-      <Button type="text" aria-label={t('layout.userMenu', '用户菜单')} style={{height: 44, paddingInline: 8}}>
+      <Button type="text" aria-label={labels?.userMenu ?? t('layout.userMenu', '用户菜单')} style={{height: 44, paddingInline: 8}}>
         <Space size={8}>{userAvatar}{full && <Typography.Text>{user.name}</Typography.Text>}</Space>
       </Button>
     )
@@ -71,7 +72,7 @@ export const EnterpriseHeader = ({
         {!full && mobileNavigationVisible && (
           <Button
             type="text"
-            aria-label={t('layout.openNavigation', '打开导航')}
+            aria-label={labels?.openNavigation ?? t('layout.openNavigation', '打开导航')}
             icon={<MenuOutlined/>}
             onClick={onOpenNavigation}
           />

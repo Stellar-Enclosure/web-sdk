@@ -21,6 +21,16 @@ export {
 
 // i18n
 export { initI18n, I18nProvider, useT, changeLanguage, currentLanguage, type I18nInitOptions } from './i18n'
+export {
+  createPageI18nLoader,
+  type PageI18nQuery,
+  type PageI18nBundle,
+  type PageI18nValues,
+  type PageI18nResult,
+  type PageI18nLoaderOptions,
+  type PageI18nLoadOptions,
+  type PageI18nLoader,
+} from './i18n/pageI18n'
 
 // Components
 export { PageHeader, type PageHeaderProps } from './components/PageHeader'
@@ -38,6 +48,7 @@ export type {
   EnterpriseHeaderConfig,
   EnterpriseFooterConfig,
   EnterpriseLayoutConfig,
+  EnterpriseLayoutLabels,
 } from './layout/types'
 
 // Hooks
