@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "mode": "LOCAL_UNCOMMITTED",
+  "nodeMajor": 24,
+  "sdk": {
+    "commit": null,
+    "sourceDigest": "561b09e48d9c9844bc07eef9ab75adb5fc4ababb7fd45dcad19cadd234e8d548",
+    "dependencyLockSha256": "d2c4c8f5c4dc82c71d116f26dd1e05969868fb1465f33f688654584737973598"
+  },
+  "contract": {
+    "coordinates": "top.egon:stellar-enclosure-tianquan-jianshen-contract:0.0.1",
+    "sha256": "c018a124bce8ee97c8403367f83802dc56fd1cea7bfe04fd68b24b051abeb9c6",
+    "entries": {
+      "permission-manifest/schema-v1.json": "eab9125dee3357ef69221f9a28b5a17c2fe04da2a012f0e4f4538c8d4ac84e6c",
+      "permission-contract/manifest-v1.json": "844aa3391c9d965a4a94c312c6baea0e37db19c3961246bc4520dda4b4a41a87",
+      "permission-contract/canonical-v1.json": "d800806726fc9a50cf9298196115bed1c17aaabb577244d8db7b56a41030cb09",
+      "permission-contract/requirements-v1.json": "8ce0b647ac49944c0d7be2a7b9eb38a1a67c8eb722a1b11a4ad0395d09fb141a",
+      "permission-contract/locales-v1.json": "b2ea0d0e4c5c4de2ebee49bcec6bb8365e9a9505e6ecce80b4547fee8bd467a1"
+    }
+  },
+  "contractDirectory": ".generated/permission-contract"
+}

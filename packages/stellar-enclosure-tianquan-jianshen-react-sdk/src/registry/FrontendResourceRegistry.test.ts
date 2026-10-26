@@ -1,67 +1,31 @@
-import {describe, expect, it} from 'vitest'
-import type {Rbac3AboutView} from '../types'
-import {FrontendResourceRegistry, type FrontendResourceDefinition} from './FrontendResourceRegistry'
+import { describe, expect, it } from 'vitest'
+import { snapshotContext } from '@stellar-enclosure/stellar-enclosure-web-shared/permissions'
+import { resources, references, fields, snapshot } from '../test/permissionFixtures'
+import { FrontendResourceRegistry } from './FrontendResourceRegistry'
+import { resolveDefaultRoute } from '../routing/resolveDefaultRoute'
 
-const about = (
-  resourceCodes: readonly string[],
-  permissions: readonly string[] = [],
-  fieldPolicies: Record<string, unknown> = {},
-) => ({
-  user: {subject: 'alice', tenantId: 'tenant-a', status: 'ACTIVE'},
-  currentApplicationCode: 'tianquan-jianshen-admin',
-  activeRoles: [],
-  permissions,
-  resourceCodes,
-  fieldPolicies,
-  landingRouteCode: null,
-  authVersion: 1,
-  policyVersion: 1,
-}) as unknown as Rbac3AboutView
-
-const definitions: readonly FrontendResourceDefinition[] = [
-  {kind: 'MENU', code: 'iam', name: 'IAM'},
-  {kind: 'ROUTE', code: 'roles', name: 'Roles', parentCode: 'iam', path: '/roles', componentKey: 'roles',
-    apiResourceCodes: ['roles.list'], suggestedPermissionCode: 'role:read'},
-  {kind: 'ACTION', code: 'role.create', name: 'Create', routeCode: 'roles', resourceCode: 'roles',
-    apiResourceCodes: ['roles.create'], suggestedPermissionCode: 'role:create'},
-  {kind: 'FIELD', code: 'role.secret', name: 'Secret', resourceCode: 'roles', fieldCode: 'secret',
-    suggestedPermissionCode: 'role:read'},
-]
-
+const current = snapshot(); const binding = snapshotContext(current, 0)
 describe('FrontendResourceRegistry', () => {
-  it('filters recursive menu descendants and actions by about resource codes', () => {
-    const registry = new FrontendResourceRegistry(definitions)
-    expect(registry.navigation(about(['iam', 'roles'], ['iam:read', 'role:read']))[0].children[0].code).toBe('roles')
-    expect(registry.canAccessRoute('roles', about(['roles'], ['role:read']))).toBe(true)
-    expect(registry.canAccessRoute('roles', about([], ['role:read']))).toBe(false)
+  it('uses declared requirements and never turns a resource key or calls reference into a grant', () => {
+    const registry = new FrontendResourceRegistry(resources, references)
+    expect(registry.navigation(current, binding)[0].children[0].key).toBe('order.page.list')
+    expect(registry.canAccessRoute('order.page.list', current, binding)).toBe(true)
+    expect(registry.canAccessResource('order.button.write', current, binding)).toBe(false)
+    expect(registry.canAccessResource('order:read', current, binding)).toBe(false)
+    const forged = snapshot({ permissionCodes: ['order.page.list'] })
+    expect(registry.canAccessRoute('order.page.list', forged, binding)).toBe(false)
+    expect(resolveDefaultRoute(forged, binding, registry)).toBeNull()
   })
-
-  it('fails closed for an unknown field and returns the about policy for a known field', () => {
-    const registry = new FrontendResourceRegistry(definitions)
-    expect(registry.getField('roles', 'unknown', about([]))).toEqual({level: 'NONE', maskingStrategy: null})
-    expect(registry.getField('roles', 'secret', about([], [], {
-      role: {
-        resourceCode: 'roles',
-        fields: {secret: {level: 'MASKED_READ', maskingStrategy: 'FULL'}},
-      },
-    }))).toEqual({level: 'MASKED_READ', maskingStrategy: 'FULL'})
+  it('requires a backend field reference and matching catalog projection', () => {
+    const registry = new FrontendResourceRegistry(resources, references)
+    expect(registry.getField('order.field.accountNo', fields, current, binding)).toEqual({ read: 'MASKED', writable: false })
+    expect(registry.getField('unknown', fields, current, binding)).toEqual({ read: 'OMITTED', writable: false })
+    expect(registry.getField('order.field.accountNo', { ...fields, catalogVersion: '8' }, current, binding)).toEqual({ read: 'OMITTED', writable: false })
   })
-
-  it('serializes suggestions and API declarations without using suggestions for access', () => {
-    const registry = new FrontendResourceRegistry(definitions)
-    expect(registry.canAccessRoute('roles', about([], ['role:read']))).toBe(false)
-    expect(registry.serializable()).toEqual(expect.arrayContaining([
-      expect.objectContaining({code: 'roles', suggestedPermissionCode: 'role:read', apiResourceCodes: ['roles.list']}),
-    ]))
-  })
-
-  it('rejects duplicate codes and cyclic parent graphs', () => {
-    expect(() => new FrontendResourceRegistry([
-      definitions[0], definitions[0],
-    ])).toThrow(/duplicate/)
-    expect(() => new FrontendResourceRegistry([
-      {kind: 'MENU', code: 'a', name: 'A', parentCode: 'b'},
-      {kind: 'MENU', code: 'b', name: 'B', parentCode: 'a'},
-    ])).toThrow(/cyclic/)
+  it('rejects duplicate keys, missing parents, cycles and frontend FIELD policies', () => {
+    expect(() => new FrontendResourceRegistry([resources[0], resources[0]])).toThrow(/duplicate/)
+    expect(() => new FrontendResourceRegistry([{ ...resources[0], target: { parentKey: 'missing' } }])).toThrow(/missing/)
+    expect(() => new FrontendResourceRegistry([{ ...resources[0], target: { parentKey: resources[0].key } }])).toThrow(/Cyclic/)
+    expect(() => new FrontendResourceRegistry([{ ...resources[0], type: 'FIELD' } as never])).toThrow(/FIELD/)
   })
 })

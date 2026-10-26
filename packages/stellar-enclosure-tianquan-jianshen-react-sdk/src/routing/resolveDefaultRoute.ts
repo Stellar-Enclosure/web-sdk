@@ -1,22 +1,10 @@
-import type { Rbac3AboutView } from '../types'
-import type { FrontendResourceDefinition } from '../registry/FrontendResourceRegistry'
-import { FrontendResourceRegistry } from '../registry/FrontendResourceRegistry'
+import type { PermissionSnapshot, PermissionSnapshotBinding } from '@stellar-enclosure/stellar-enclosure-web-shared/permissions'
+import { FrontendResourceRegistry, compareResourceOrder, type FrontendResourceDefinition } from '../registry/FrontendResourceRegistry'
 
-export const resolveDefaultRoute = (
-  about: Rbac3AboutView,
-  definitions: FrontendResourceRegistry | readonly FrontendResourceDefinition[],
-): FrontendResourceDefinition | null => {
-  const registry = definitions instanceof FrontendResourceRegistry
-    ? definitions : new FrontendResourceRegistry(definitions)
-  const accessible = registry.definitions
-    .filter((route) => route.kind === 'ROUTE')
-    .filter((route) => route.hidden !== true)
-    .filter((route) => about.resourceCodes.includes(route.code))
-    .sort((left, right) => (left.order ?? Number.MAX_SAFE_INTEGER)
-      - (right.order ?? Number.MAX_SAFE_INTEGER)
-      || left.code.localeCompare(right.code))
-
-  return accessible.find((route) => route.code === about.landingRouteCode)
-    ?? accessible[0]
-    ?? null
+export const resolveDefaultRoute = (snapshot: PermissionSnapshot | null, binding: PermissionSnapshotBinding | null,
+  definitions: FrontendResourceRegistry | readonly FrontendResourceDefinition[], landingRouteKey?: string | null): FrontendResourceDefinition | null => {
+  const registry = definitions instanceof FrontendResourceRegistry ? definitions : new FrontendResourceRegistry(definitions)
+  const accessible = registry.definitions.filter(value => value.type === 'PAGE' && value.target.hidden !== 'true')
+    .filter(value => registry.canAccessRoute(value.key, snapshot, binding)).sort(compareResourceOrder)
+  return accessible.find(value => value.key === landingRouteKey) ?? accessible[0] ?? null
 }

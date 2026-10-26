@@ -9,6 +9,8 @@ export default defineConfig({
     lib: {
       entry: {
         'admin-web-shared': resolve(import.meta.dirname, 'src/index.ts'),
+        'permissions': resolve(import.meta.dirname, 'src/permissions/index.ts'),
+        'react-permissions': resolve(import.meta.dirname, 'src/permissions/react.ts'),
         // Vite 插件独立入口：node 环境专用，避免 node 内置模块进入浏览器主入口。
         'vite-plugin': resolve(import.meta.dirname, 'src/vite/faviconPlugin.ts'),
       },

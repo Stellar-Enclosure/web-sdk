@@ -1,16 +1,15 @@
-import type {ReactNode} from 'react'
-import {useRbac3Authorization} from '../hooks/useRbac3Authorization'
+import type { ReactNode } from 'react'
+import { usePermission as useSnapshotPermission } from '@stellar-enclosure/stellar-enclosure-web-shared/react-permissions'
+import { useRbac3Authorization } from '../hooks/useRbac3Authorization'
 
 export interface ActionGuardProps {
-  readonly resourceCode: string
+  readonly resourceKey: string
   readonly children: ReactNode
   readonly fallback?: ReactNode
 }
-
-/** Controls an ACTION by its resource code; permission characters remain an internal server key. */
-export const ActionGuard = ({resourceCode, children, fallback = null}: ActionGuardProps) => {
-  const {status, about} = useRbac3Authorization()
-  return status === 'READY' && about !== null && about.resourceCodes.includes(resourceCode)
-    ? children
-    : fallback
+/** A key resolves a code-declared requirement. It cannot act as a permission grant. */
+export const ActionGuard = ({ resourceKey, children, fallback = null }: ActionGuardProps) => {
+  const { status, snapshot, binding, resourceRegistry } = useRbac3Authorization()
+  useSnapshotPermission(snapshot, binding)
+  return status === 'READY' && resourceRegistry.canAccessResource(resourceKey, snapshot, binding) ? children : fallback
 }

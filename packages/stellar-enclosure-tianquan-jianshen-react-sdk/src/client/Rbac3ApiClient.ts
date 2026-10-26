@@ -1,123 +1,58 @@
-import {type Rbac3ErrorCode, Rbac3RequestError,} from '../errors'
+import { isPermissionSnapshot, type PermissionSnapshot } from '@stellar-enclosure/stellar-enclosure-web-shared/permissions'
+import { Rbac3RequestError, TIANQUAN_JIANSHEN_ERROR_DEFINITIONS, type Rbac3ErrorCode } from '../errors'
 import type {
-    ActiveRoleSetView,
-    Rbac3AboutView,
-    ResultRecord,
-    Rbac3Client,
-    ReplaceActiveRolesRequest,
-    ReplaceActiveRolesResult,
-    RoleActivationCandidateView,
+  ActiveRoleSetView,
+  Rbac3AboutView,
+  ResultRecord,
+  Rbac3Client,
+  ReplaceActiveRolesRequest,
+  ReplaceActiveRolesResult,
+  RoleActivationCandidateView,
 } from '../types'
 
 export interface Rbac3ApiClientOptions {
-  readonly basePath?: string
-  readonly fetch?: typeof globalThis.fetch
+  /** Pass shared createHttpClient with the fixed application base, CSRF and request context. */
+  readonly transport: { request<T>(path: string, init?: RequestInit): Promise<T> }
 }
 
-/** Typed authorization HTTP adapter. Identity cookies are owned by Yuheng/Tianquan-Shoubing. */
+/** Domain envelope adapter; shared browser transport owns Cookie, CSRF and cancellation. */
 export class Rbac3ApiClient implements Rbac3Client {
-  private readonly basePath: string
-  private readonly fetcher: typeof globalThis.fetch
+  constructor(private readonly options: Rbac3ApiClientOptions) {}
 
-    constructor(options: Rbac3ApiClientOptions = {}) {
-    this.basePath = normalizeBasePath(options.basePath ?? '')
-    this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis)
+  getActivationCandidates(signal?: AbortSignal): Promise<RoleActivationCandidateView> {
+    return this.request('/api/tianquan-jianshen/v1/auth/role-activation-candidates', { signal })
   }
 
-  getActivationCandidates(): Promise<RoleActivationCandidateView> {
-    return this.request('/api/tianquan-jianshen/v1/auth/role-activation-candidates')
+  getActiveRoles(signal?: AbortSignal): Promise<ActiveRoleSetView> {
+    return this.request('/api/tianquan-jianshen/v1/auth/role-activations', { signal })
   }
 
-  getActiveRoles(): Promise<ActiveRoleSetView> {
-    return this.request('/api/tianquan-jianshen/v1/auth/role-activations')
+  replaceActiveRoles(request: ReplaceActiveRolesRequest, signal?: AbortSignal): Promise<ReplaceActiveRolesResult> {
+    return this.request('/api/tianquan-jianshen/v1/auth/role-activations', { method: 'PUT', body: JSON.stringify(request), signal })
   }
 
-  replaceActiveRoles(
-    request: ReplaceActiveRolesRequest,
-  ): Promise<ReplaceActiveRolesResult> {
-    return this.request('/api/tianquan-jianshen/v1/auth/role-activations', {
-      method: 'PUT',
-      body: JSON.stringify(request),
-    })
+  getAbout(signal?: AbortSignal): Promise<Rbac3AboutView> { return this.request('/api/v1/auth/about', { signal }) }
+
+  async getPermissionSnapshot(signal?: AbortSignal): Promise<PermissionSnapshot> {
+    const value = await this.request<unknown>('/api/v1/authorization/effective-permissions', { signal })
+    if (!isPermissionSnapshot(value)) throw new Rbac3RequestError({ status: 200, code: 'INVALID_RESPONSE', message: 'Permission snapshot is invalid', retryable: false })
+    return value
   }
 
-  getAbout(): Promise<Rbac3AboutView> {
-      return this.request('/api/v1/auth/about')
-  }
-
-    private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-        const headers = new Headers(init.headers)
-        headers.set('Accept', 'application/json')
-        if (init.body !== undefined && !headers.has('Content-Type')) {
-            headers.set('Content-Type', 'application/json')
-        }
-
-    let response: Response
-    try {
-      response = await this.fetcher(`${this.basePath}${path}`, {
-        ...init,
-        credentials: 'include',
-          headers,
-      })
-    } catch (cause) {
-      throw new Rbac3RequestError({
-        status: 0,
-        code: 'NETWORK_ERROR',
-        message: cause instanceof Error ? cause.message : 'Tianquan-Jianshen network request failed',
-        retryable: true,
-      })
+  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    let envelope: ResultRecord<T>
+    try { envelope = await this.options.transport.request<ResultRecord<T>>(path, init) }
+    catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
+      const error = cause as { status?: unknown; code?: unknown; message?: unknown }
+      const status = typeof error?.status === 'number' ? error.status : 0
+      const code = typeof error?.code === 'string' && Object.hasOwn(TIANQUAN_JIANSHEN_ERROR_DEFINITIONS, error.code)
+        ? error.code as Rbac3ErrorCode : status === 0 ? 'NETWORK_ERROR' : 'INVALID_RESPONSE'
+      throw new Rbac3RequestError({ status, code, message: 'Authorization request failed', retryable: status === 0 || status >= 500 })
     }
-
-        if (!response.ok) throw await toRequestError(response)
-
-    const envelope = await readJson<ResultRecord<T>>(response)
-    if (envelope === null || typeof envelope !== 'object'
-      || envelope.success !== true || !('data' in envelope)) {
-      throw new Rbac3RequestError({
-        status: response.status,
-        code: 'INVALID_RESPONSE',
-        message: 'Tianquan-Jianshen response envelope is invalid',
-        retryable: false,
-      })
-    }
-    if (envelope.data === null) {
-      throw new Rbac3RequestError({
-        status: response.status,
-        code: 'INVALID_RESPONSE',
-        message: 'Tianquan-Jianshen response data is null',
-        retryable: false,
-      })
+    if (envelope === null || typeof envelope !== 'object' || envelope.success !== true || !('data' in envelope) || envelope.data === null) {
+      throw new Rbac3RequestError({ status: 200, code: 'INVALID_RESPONSE', message: 'Authorization response envelope is invalid', retryable: false })
     }
     return envelope.data
   }
-}
-
-const normalizeBasePath = (value: string): string => {
-  const trimmed = value.trim()
-  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed
-}
-
-const readJson = async <T>(response: Response): Promise<T | null> => {
-  try {
-    return await response.json() as T
-  } catch {
-    return null
-  }
-}
-
-const toRequestError = async (response: Response): Promise<Rbac3RequestError> => {
-  const body = await readJson<{
-    code?: number
-    status?: string
-    message?: string
-    traceId?: string
-  }>(response)
-  const code = body?.status as Rbac3ErrorCode | undefined
-  return new Rbac3RequestError({
-    status: response.status,
-    code: code ?? 'INVALID_RESPONSE',
-    message: body?.message ?? 'Tianquan-Jianshen request was rejected',
-    retryable: response.status >= 500,
-    traceId: body?.traceId,
-  })
 }

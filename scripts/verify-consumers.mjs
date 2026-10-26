@@ -2,6 +2,9 @@
 import {readFileSync, writeFileSync, mkdirSync, existsSync, cpSync} from 'node:fs'
 import {resolve, isAbsolute, join} from 'node:path'
 import {spawnSync} from 'node:child_process'
+import {realpathSync} from 'node:fs'
+import {toolRoot, verifyToolchain} from './permissions/prepare-contract.mjs'
+import {main} from './permission-manifest.mjs'
 
 const args = new Map()
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -36,6 +39,13 @@ const run = (cwd, command, argv, capture = false) => {
   return result.stdout
 }
 const sdkRoot = join(workspace, 'web-sdk')
+if (realpathSync(sdkRoot) !== realpathSync(toolRoot)) throw new Error('EXPLICIT_TOOL_CHECKOUT_REQUIRED')
+if (!process.env.PAC_TOOLCHAIN_LOCK || !process.env.PAC_CONTRACT_ARTIFACT) throw new Error('PAC_TOOLCHAIN_LOCK_AND_CONTRACT_ARTIFACT_REQUIRED')
+const toolchainLock = resolve(process.env.PAC_TOOLCHAIN_LOCK)
+await verifyToolchain(toolchainLock)
+await main(['prepare', '--lock', toolchainLock, '--artifact', resolve(process.env.PAC_CONTRACT_ARTIFACT)], sdkRoot)
+process.env.PAC_SDK_DIR = sdkRoot
+process.env.PAC_TOOLCHAIN_LOCK = toolchainLock
 if (online) run(sdkRoot, 'npm', ['ci', '--ignore-scripts'])
 run(sdkRoot, 'npm', ['ci', '--offline', '--ignore-scripts'])
 run(sdkRoot, 'npm', ['run', 'build'])

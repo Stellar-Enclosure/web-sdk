@@ -5,35 +5,43 @@ workflow:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
-
-stages:
-  - test
-
+stages: [test]
 default:
-  image: node:24-bookworm
+  image: node:24-bookworm-slim
   interruptible: true
-
 variables:
-  STELLAR_USE_SOURCE_BOOTSTRAP: "true"
   npm_config_cache: "$CI_PROJECT_DIR/.cache/npm"
   npm_config_audit: "false"
   npm_config_fund: "false"
-
+  PAC_TOOLCHAIN_LOCK: "$CI_PROJECT_DIR/permission-toolchain.local.lock.json"
+  PAC_CONTRACT_ARTIFACT: "$CI_PROJECT_DIR/.ci/permission-contract.jar"
 build-and-unit-tests:
   stage: test
   timeout: 45 minutes
   cache:
     key:
       prefix: npm-node24
-      files:
-        - package-lock.json
-    paths:
-      - .cache/npm/
+      files: [package-lock.json]
+    paths: [.cache/npm/]
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y --no-install-recommends ca-certificates curl git python3 unzip
   script:
     - npm ci
-    - npm run build
-    - npm test
+    - |
+      set -eu
+      mkdir -p .ci/npm-artifacts
+      python3 - <<'PY'
+      import os, urllib.parse
+      url = urllib.parse.urlsplit(os.environ.get('PERMISSION_CONTRACT_ARTIFACT_URL', ''))
+      if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment:
+          raise SystemExit('A non-secret HTTPS contract artifact URL is required')
+      PY
+      curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+        --max-filesize 67108864 "$PERMISSION_CONTRACT_ARTIFACT_URL" --output "$PAC_CONTRACT_ARTIFACT"
+      node scripts/permission-manifest.mjs prepare --lock "$PAC_TOOLCHAIN_LOCK" --artifact "$PAC_CONTRACT_ARTIFACT"
+      npm test
+      npm pack --workspaces --ignore-scripts --json --pack-destination "$CI_PROJECT_DIR/.ci/npm-artifacts" > .ci/npm-artifacts/pack-report.json
   artifacts:
-    expire_in: 7 days
-    paths:
-      - packages/*/dist/
+    expire_in: 14 days
+    paths: [.ci/npm-artifacts/]

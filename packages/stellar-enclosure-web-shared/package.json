@@ -18,6 +18,14 @@
     "./vite-plugin": {
       "import": "./dist/vite-plugin.js",
       "types": "./dist/vite/faviconPlugin.d.ts"
+    },
+    "./permissions": {
+      "types": "./dist/permissions/index.d.ts",
+      "import": "./dist/permissions.js"
+    },
+    "./react-permissions": {
+      "types": "./dist/permissions/react.d.ts",
+      "import": "./dist/react-permissions.js"
     }
   },
   "scripts": {
@@ -28,7 +36,7 @@
     "release:patch": "npm version patch --no-git-tag-version && npm publish",
     "release:minor": "npm version minor --no-git-tag-version && npm publish",
     "prepack": "npm run build",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "node ../../scripts/permission-manifest.mjs verify --lock ../../permission-toolchain.lock.json --purpose distribution && npm test"
   },
   "peerDependencies": {
     "@ant-design/icons": "^6.3.2",

@@ -6,8 +6,8 @@
       "name": "@stellar-enclosure/stellar-enclosure-web-shared",
       "version": "0.0.1",
       "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz",
-      "integrity": "sha512-q51J/6e6hKnPhJCI0mhJzISHPhC22phVOHIqj2NFpdUK1TXQf+AIJTQgKkHjZTYOy9m8Z7y/+j4wl+37DO8kOA==",
-      "shasum": "f52366bd2a53154fe0ef2abc36e6ab38981148e6",
+      "integrity": "sha512-TESP1sF2Nvl/wAJAZayM8UNbCWaOIWnGndnva8lgbI7p4+cMqqZqeO8CYJPIdtmNqkE1v8Jhc+bTd9ZPbplLUA==",
+      "shasum": "a1a0b1604e345cb1fb6186b2d2eb3dd69f529917",
       "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.0.1.tgz",
       "peerDependencies": {
         "@ant-design/icons": "^6.3.2",
@@ -32,12 +32,12 @@
         },
         {
           "path": "README.md",
-          "size": 7512,
+          "size": 12566,
           "mode": 420
         },
         {
           "path": "dist/admin-web-shared.js",
-          "size": 32571,
+          "size": 46866,
           "mode": 420
         },
         {
@@ -52,22 +52,32 @@
         },
         {
           "path": "dist/api/httpClient.d.ts",
-          "size": 524,
+          "size": 913,
           "mode": 420
         },
         {
           "path": "dist/api/httpClient.d.ts.map",
-          "size": 540,
+          "size": 826,
+          "mode": 420
+        },
+        {
+          "path": "dist/auth/authRequestContext.d.ts",
+          "size": 861,
+          "mode": 420
+        },
+        {
+          "path": "dist/auth/authRequestContext.d.ts.map",
+          "size": 762,
           "mode": 420
         },
         {
           "path": "dist/auth/gatewayAuthClient.d.ts",
-          "size": 1460,
+          "size": 2864,
           "mode": 420
         },
         {
           "path": "dist/auth/gatewayAuthClient.d.ts.map",
-          "size": 1406,
+          "size": 2742,
           "mode": 420
         },
         {
@@ -111,6 +121,16 @@
           "mode": 420
         },
         {
+          "path": "dist/components/PermissionGate.d.ts",
+          "size": 755,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/PermissionGate.d.ts.map",
+          "size": 596,
+          "mode": 420
+        },
+        {
           "path": "dist/hooks/useFeatureQuery.d.ts",
           "size": 635,
           "mode": 420
@@ -122,12 +142,12 @@
         },
         {
           "path": "dist/hooks/usePermission.d.ts",
-          "size": 258,
+          "size": 462,
           "mode": 420
         },
         {
           "path": "dist/hooks/usePermission.d.ts.map",
-          "size": 228,
+          "size": 337,
           "mode": 420
         },
         {
@@ -151,13 +171,23 @@
           "mode": 420
         },
         {
+          "path": "dist/i18n/jdk25Locale.d.ts",
+          "size": 201,
+          "mode": 420
+        },
+        {
+          "path": "dist/i18n/jdk25Locale.d.ts.map",
+          "size": 251,
+          "mode": 420
+        },
+        {
           "path": "dist/i18n/pageI18n.d.ts",
-          "size": 1834,
+          "size": 2541,
           "mode": 420
         },
         {
           "path": "dist/i18n/pageI18n.d.ts.map",
-          "size": 1857,
+          "size": 2394,
           "mode": 420
         },
         {
@@ -172,12 +202,12 @@
         },
         {
           "path": "dist/index.d.ts",
-          "size": 1885,
+          "size": 2222,
           "mode": 420
         },
         {
           "path": "dist/index.d.ts.map",
-          "size": 1455,
+          "size": 1679,
           "mode": 420
         },
         {
@@ -231,6 +261,111 @@
           "mode": 420
         },
         {
+          "path": "dist/PermissionGate-DHRaaMJX.js",
+          "size": 1786,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions-vj7AK5oP.js",
+          "size": 990,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions.js",
+          "size": 915,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/definitions.d.ts",
+          "size": 2486,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/definitions.d.ts.map",
+          "size": 2450,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/evaluateRequirement.d.ts",
+          "size": 402,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/evaluateRequirement.d.ts.map",
+          "size": 358,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/fieldCatalog.d.ts",
+          "size": 367,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/fieldCatalog.d.ts.map",
+          "size": 333,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/index.d.ts",
+          "size": 557,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/index.d.ts.map",
+          "size": 461,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/permissionSnapshot.d.ts",
+          "size": 3721,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/permissionSnapshot.d.ts.map",
+          "size": 2938,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/permissionSnapshotCache.d.ts",
+          "size": 986,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/permissionSnapshotCache.d.ts.map",
+          "size": 915,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/react.d.ts",
+          "size": 245,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/react.d.ts.map",
+          "size": 265,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/usePermissionSnapshot.d.ts",
+          "size": 641,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissions/usePermissionSnapshot.d.ts.map",
+          "size": 456,
+          "mode": 420
+        },
+        {
+          "path": "dist/permissionSnapshotCache-Bj7lQPYz.js",
+          "size": 8634,
+          "mode": 420
+        },
+        {
+          "path": "dist/react-permissions.js",
+          "size": 151,
+          "mode": 420
+        },
+        {
           "path": "dist/theme/ThemeProvider.d.ts",
           "size": 198,
           "mode": 420
@@ -272,7 +407,7 @@
         },
         {
           "path": "package.json",
-          "size": 2396,
+          "size": 2764,
           "mode": 420
         }
       ]
@@ -281,12 +416,15 @@
       "name": "@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk",
       "version": "0.0.1",
       "filename": "stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
-      "integrity": "sha512-dK5+9LY9U9/MA96UbHmqNPM1hNbu6eavb5pVKWJqnT5wREKZSyVWtJmMo1bgS67tgX+cK8f9vRZRj+t0UQIgQA==",
-      "shasum": "53236cb7de45d3a4b178ef0eb2d8b15dcc9605f1",
+      "integrity": "sha512-m16immQ4ZxhyATE9pM/xHruzfSu9mOhw09n1D3IGjVt0DBj/1uLEgqBWZhg1+enUYWx64NigtEyp8UccfzQ3rQ==",
+      "shasum": "ef5582839763ec4ba1dcc09b34292c63c913a972",
       "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk/-/stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
       "peerDependencies": {
         "react": "^19.2.8",
         "react-dom": "^19.2.8"
+      },
+      "dependencies": {
+        "@stellar-enclosure/stellar-enclosure-web-shared": "0.0.1"
       },
       "files": [
         {
@@ -301,17 +439,27 @@
         },
         {
           "path": "README.md",
-          "size": 715,
+          "size": 4521,
           "mode": 420
         },
         {
           "path": "dist/client/Rbac3ApiClient.d.ts",
-          "size": 874,
+          "size": 1221,
           "mode": 420
         },
         {
           "path": "dist/client/Rbac3ApiClient.d.ts.map",
-          "size": 696,
+          "size": 914,
+          "mode": 420
+        },
+        {
+          "path": "dist/client/Rbac3ApiClient.test.d.ts",
+          "size": 60,
+          "mode": 420
+        },
+        {
+          "path": "dist/client/Rbac3ApiClient.test.d.ts.map",
+          "size": 142,
           "mode": 420
         },
         {
@@ -326,7 +474,7 @@
         },
         {
           "path": "dist/guards/ActionGuard.d.ts",
-          "size": 429,
+          "size": 414,
           "mode": 420
         },
         {
@@ -336,22 +484,22 @@
         },
         {
           "path": "dist/guards/FieldGuard.d.ts",
-          "size": 559,
+          "size": 733,
           "mode": 420
         },
         {
           "path": "dist/guards/FieldGuard.d.ts.map",
-          "size": 518,
+          "size": 606,
           "mode": 420
         },
         {
           "path": "dist/guards/PermissionGuard.d.ts",
-          "size": 341,
+          "size": 463,
           "mode": 420
         },
         {
           "path": "dist/guards/PermissionGuard.d.ts.map",
-          "size": 371,
+          "size": 423,
           "mode": 420
         },
         {
@@ -376,12 +524,12 @@
         },
         {
           "path": "dist/hooks/usePermission.d.ts",
-          "size": 112,
+          "size": 243,
           "mode": 420
         },
         {
           "path": "dist/hooks/usePermission.d.ts.map",
-          "size": 179,
+          "size": 241,
           "mode": 420
         },
         {
@@ -416,17 +564,17 @@
         },
         {
           "path": "dist/index.js",
-          "size": 15445,
+          "size": 19354,
           "mode": 420
         },
         {
           "path": "dist/provider/Rbac3Provider.d.ts",
-          "size": 864,
+          "size": 1817,
           "mode": 420
         },
         {
           "path": "dist/provider/Rbac3Provider.d.ts.map",
-          "size": 697,
+          "size": 1319,
           "mode": 420
         },
         {
@@ -441,12 +589,12 @@
         },
         {
           "path": "dist/provider/rbac3StateMachine.d.ts",
-          "size": 1351,
+          "size": 1785,
           "mode": 420
         },
         {
           "path": "dist/provider/rbac3StateMachine.d.ts.map",
-          "size": 1356,
+          "size": 1744,
           "mode": 420
         },
         {
@@ -461,12 +609,12 @@
         },
         {
           "path": "dist/registry/FrontendResourceRegistry.d.ts",
-          "size": 951,
+          "size": 1582,
           "mode": 420
         },
         {
           "path": "dist/registry/FrontendResourceRegistry.d.ts.map",
-          "size": 735,
+          "size": 1179,
           "mode": 420
         },
         {
@@ -501,22 +649,32 @@
         },
         {
           "path": "dist/routing/resolveDefaultRoute.d.ts",
-          "size": 449,
+          "size": 566,
           "mode": 420
         },
         {
           "path": "dist/routing/resolveDefaultRoute.d.ts.map",
-          "size": 390,
+          "size": 438,
+          "mode": 420
+        },
+        {
+          "path": "dist/test/permissionFixtures.d.ts",
+          "size": 967,
+          "mode": 420
+        },
+        {
+          "path": "dist/test/permissionFixtures.d.ts.map",
+          "size": 657,
           "mode": 420
         },
         {
           "path": "dist/types.d.ts",
-          "size": 12323,
+          "size": 12056,
           "mode": 420
         },
         {
           "path": "dist/types.d.ts.map",
-          "size": 11816,
+          "size": 11314,
           "mode": 420
         },
         {
@@ -531,7 +689,7 @@
         },
         {
           "path": "package.json",
-          "size": 1547,
+          "size": 1755,
           "mode": 420
         }
       ]
@@ -540,32 +698,32 @@
   "consumers": [
     {
       "repository": "tianshu-web",
-      "offlineInstall": "NOT_RUN",
+      "offlineInstall": "PASS",
       "buildAndTests": "PASS"
     },
     {
       "repository": "yuheng-web",
-      "offlineInstall": "NOT_RUN",
+      "offlineInstall": "PASS",
       "buildAndTests": "PASS"
     },
     {
       "repository": "yaoguang-web",
-      "offlineInstall": "NOT_RUN",
+      "offlineInstall": "PASS",
       "buildAndTests": "PASS"
     },
     {
       "repository": "tianquan-jianshen-web",
-      "offlineInstall": "NOT_RUN",
+      "offlineInstall": "PASS",
       "buildAndTests": "PASS"
     },
     {
       "repository": "tianquan-shoubing-web",
-      "offlineInstall": "NOT_RUN",
+      "offlineInstall": "PASS",
       "buildAndTests": "PASS"
     },
     {
       "repository": "portal",
-      "offlineInstall": "NOT_RUN",
+      "offlineInstall": "PASS",
       "buildAndTests": "PASS"
     }
   ],

@@ -1,3 +1,6 @@
+import type { ResourceDefinition, PermissionSnapshot, PermissionSnapshotContext, BackendFieldCatalog, FieldAccessState } from '@stellar-enclosure/stellar-enclosure-web-shared/permissions'
+export type { PermissionSnapshot, PermissionSnapshotContext, BackendFieldCatalog, FieldAccessState } from '@stellar-enclosure/stellar-enclosure-web-shared/permissions'
+
 export type BigintId = string
 export type InstantString = string
 
@@ -99,41 +102,17 @@ export interface Rbac3AboutView {
   readonly user: AboutUser
   readonly currentApplicationCode: string | null
   readonly activeRoles: readonly ActiveRoleDescriptor[]
-  readonly permissions: readonly string[]
-  readonly resourceCodes: readonly string[]
-  readonly fieldPolicies: Readonly<Record<string, FieldPolicyDecision>>
   readonly landingRouteCode: string | null
   readonly authVersion: number
   readonly policyVersion: number
 }
 
-export type FrontendResourceKind = 'MENU' | 'ROUTE' | 'ACTION' | 'FIELD'
-
-export interface FrontendResourceDefinition {
-  readonly kind: FrontendResourceKind
-  readonly code: string
-  readonly name: string
-  readonly suggestedPermissionCode?: string | null
-  readonly apiResourceCodes?: readonly string[]
-  readonly parentCode?: string
-  readonly routeCode?: string
-  readonly resourceCode?: string
-  readonly fieldCode?: string
-  readonly jsonPath?: string
-  readonly path?: string
-  readonly componentKey?: string
-  readonly hidden?: boolean
-  readonly order?: number
-}
-
-export interface FrontendNavigationNode extends FrontendResourceDefinition {
+export type FrontendResourceKind = ResourceDefinition['type']
+export type FrontendResourceDefinition = ResourceDefinition
+export interface FrontendNavigationNode extends ResourceDefinition {
   readonly children: readonly FrontendNavigationNode[]
 }
-
-export interface FieldAccessResult {
-  readonly level: FieldAccessLevel
-  readonly maskingStrategy: string | null
-}
+export type FieldAccessResult = FieldAccessState
 
 export interface ActiveRoleDescriptor {
   readonly roleId: BigintId
@@ -364,12 +343,13 @@ export interface BusinessParticipationCommand {
 }
 
 export interface Rbac3Client {
-  getActivationCandidates(): Promise<RoleActivationCandidateView>
-  getActiveRoles(): Promise<ActiveRoleSetView>
+  getActivationCandidates(signal?: AbortSignal): Promise<RoleActivationCandidateView>
+  getActiveRoles(signal?: AbortSignal): Promise<ActiveRoleSetView>
   replaceActiveRoles(
-    request: ReplaceActiveRolesRequest,
+    request: ReplaceActiveRolesRequest, signal?: AbortSignal,
   ): Promise<ReplaceActiveRolesResult>
-  getAbout(): Promise<Rbac3AboutView>
+  getAbout(signal?: AbortSignal): Promise<Rbac3AboutView>
+  getPermissionSnapshot(signal?: AbortSignal): Promise<PermissionSnapshot>
 }
 
 export interface ResultRecord<T> {

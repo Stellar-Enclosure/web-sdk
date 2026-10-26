@@ -22,7 +22,7 @@
     "test": "tsc --noEmit --pretty false && vitest run",
     "lint": "tsc --noEmit --pretty false",
     "prepack": "npm run build",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "node ../../scripts/permission-manifest.mjs verify --lock ../../permission-toolchain.lock.json --purpose distribution && npm test"
   },
   "peerDependencies": {
     "react": "^19.2.8",
@@ -52,5 +52,8 @@
   "bugs": {
     "url": "https://github.com/Stellar-Enclosure/web-sdk/issues"
   },
-  "license": "(MIT OR LGPL-2.1-only)"
+  "license": "(MIT OR LGPL-2.1-only)",
+  "dependencies": {
+    "@stellar-enclosure/stellar-enclosure-web-shared": "0.0.1"
+  }
 }

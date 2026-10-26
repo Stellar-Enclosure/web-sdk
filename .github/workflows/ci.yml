@@ -12,21 +12,40 @@ jobs:
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      PAC_TOOLCHAIN_LOCK: ${{ github.workspace }}/permission-toolchain.local.lock.json
+      PAC_CONTRACT_ARTIFACT: ${{ github.workspace }}/.generated/ci/permission-contract.jar
+      PERMISSION_CONTRACT_ARTIFACT_URL: ${{ vars.PERMISSION_CONTRACT_ARTIFACT_URL }}
     steps:
       - uses: actions/checkout@v5
         with:
-          repository: Stellar-Enclosure/web-sdk
-          path: workspace/web-sdk
-          token: ${{ secrets.STELLAR_ENCLOSURE_READ_TOKEN || github.token }}
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: workspace/web-sdk/package-lock.json
-      - name: Build and test both SDK workspaces
-        working-directory: workspace/web-sdk
+      - run: npm ci
+      - name: Prepare the exact RC contract for offline source validation
         run: |
-          npm ci
-          npm run build
-          npm test
+          python3 - <<'PY'
+          import os, urllib.parse
+          url = urllib.parse.urlsplit(os.environ['PERMISSION_CONTRACT_ARTIFACT_URL'])
+          if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment:
+              raise SystemExit('A non-secret HTTPS contract artifact URL is required')
+          PY
+          mkdir -p "$(dirname "$PAC_CONTRACT_ARTIFACT")"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --max-filesize 67108864 "$PERMISSION_CONTRACT_ARTIFACT_URL" --output "$PAC_CONTRACT_ARTIFACT"
+          node scripts/permission-manifest.mjs prepare --lock "$PAC_TOOLCHAIN_LOCK" --artifact "$PAC_CONTRACT_ARTIFACT"
+      - name: Compile SDKs and run browser and Node contract tests
+        run: npm test
+      - name: Validate the two real npm package contents
+        run: |
+          mkdir -p "$RUNNER_TEMP/permission-sdk-packages"
+          npm pack --workspaces --ignore-scripts --json --pack-destination "$RUNNER_TEMP/permission-sdk-packages" > "$RUNNER_TEMP/permission-sdk-packages/pack-report.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: permission-sdk-offline-packages
+          path: ${{ runner.temp }}/permission-sdk-packages/
+          if-no-files-found: error
+          retention-days: 14

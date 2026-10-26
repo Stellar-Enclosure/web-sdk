@@ -1,95 +1,47 @@
 import '@testing-library/jest-dom/vitest'
-import {act, render, screen, waitFor} from '@testing-library/react'
-import {describe, expect, it} from 'vitest'
-import type {Rbac3AboutView, Rbac3Client} from '../types'
-import {Rbac3Provider} from '../provider/Rbac3Provider'
-import {ActionGuard} from './ActionGuard'
-import {FieldGuard} from './FieldGuard'
-import {PermissionGuard} from './PermissionGuard'
+import { act, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { fixture, fields, references, resources, snapshot } from '../test/permissionFixtures'
+import { Rbac3Provider } from '../provider/Rbac3Provider'
+import { ActionGuard } from './ActionGuard'
+import { FieldGuard } from './FieldGuard'
+import { PermissionGuard } from './PermissionGuard'
 
-const about = {
-  user: {subject: 'alice', tenantId: 'tenant-a', status: 'ACTIVE'},
-  currentApplicationCode: 'tianquan-jianshen-admin',
-  activeRoles: [],
-  permissions: ['orders:read'],
-  resourceCodes: ['orders.read'],
-  fieldPolicies: {
-    'orders:detail': {
-      decision: 'ALLOW',
-      fields: {
-        accountNo: { level: 'MASKED_READ', maskingStrategy: 'BANK_ACCOUNT' },
-        amount: { level: 'READ', maskingStrategy: null },
-        internalNote: { level: 'NONE', maskingStrategy: null },
-      },
-    },
-  },
-} as unknown as Rbac3AboutView
-
-const client = {
-    getActivationCandidates: async () => ({applications: []}),
-    getActiveRoles: async () => ({
-        activeRoles: [],
-        activationRequired: false,
-        authVersion: 1,
-        policyVersion: 1,
-        snapshotChecksum: 'sum'
-    }),
-    replaceActiveRoles: async () => ({
-        activeRoles: [],
-        changed: false,
-        authVersion: 1,
-        policyVersion: 1,
-        activationRequired: false,
-        snapshotChecksum: 'sum'
-    }),
-  getAbout: async () => about,
-} as unknown as Rbac3Client
-
-describe('Tianquan-Jianshen guards', () => {
-  it('hides permissions by default until about is ready', async () => {
-    let releaseAbout: ((view: Rbac3AboutView) => void) | undefined
-    const delayedClient = {
-      ...client,
-      getAbout: () => new Promise<Rbac3AboutView>((resolve) => {
-        releaseAbout = resolve
-      }),
-    } as Rbac3Client
-
-    render(
-        <Rbac3Provider client={delayedClient}>
-        <PermissionGuard permission="orders:read">visible</PermissionGuard>
-      </Rbac3Provider>,
-    )
-
-    expect(screen.queryByText('visible')).not.toBeInTheDocument()
-    await waitFor(() => expect(releaseAbout).toBeTypeOf('function'))
-    act(() => releaseAbout?.(about))
-    await waitFor(() => expect(screen.getByText('visible')).toBeInTheDocument())
+describe('shared requirement guards', () => {
+  it('denies before snapshot readiness and uses ALL/ANY instead of resource membership', async () => {
+    let release!: (value: ReturnType<typeof snapshot>) => void
+    const props = fixture({ getPermissionSnapshot: () => new Promise(done => { release = done }) })
+    render(<Rbac3Provider {...props} resources={resources}>
+      <PermissionGuard requirement={{ mode: 'ANY', codes: ['order:read', 'order:write'] }}>read</PermissionGuard>
+      <PermissionGuard requirement={{ mode: 'ALL', codes: [] }}>empty</PermissionGuard>
+      <ActionGuard resourceKey="order.button.write">write</ActionGuard>
+      <ActionGuard resourceKey="order:read">permission-as-key</ActionGuard>
+    </Rbac3Provider>)
+    expect(screen.queryByText('read')).toBeNull()
+    await waitFor(() => expect(release).toBeTypeOf('function'))
+    act(() => release(snapshot()))
+    await waitFor(() => expect(screen.getByText('read')).toBeInTheDocument())
+    for (const value of ['empty', 'write', 'permission-as-key']) expect(screen.queryByText(value)).toBeNull()
   })
 
-  it('does not expose a write escape hatch', async () => {
-    render(
-        <Rbac3Provider client={client}>
-        <ActionGuard resourceCode="orders.write">write</ActionGuard>
-      </Rbac3Provider>,
-    )
-
-    await waitFor(() => expect(screen.queryByText('write')).not.toBeInTheDocument())
+  it('uses only the server-masked value and requires a declared backend field reference', async () => {
+    const props = fixture()
+    render(<Rbac3Provider {...props} resources={resources} resourceReferences={references} fieldCatalog={fields}>
+      <FieldGuard fieldKey="order.field.accountNo" value="6222021234567890" maskedValue="6222 **** 7890" />
+      <FieldGuard fieldKey="order.field.unknown" value="unknown-secret" />
+    </Rbac3Provider>)
+    await waitFor(() => expect(screen.getByText('6222 **** 7890')).toBeInTheDocument())
+    expect(screen.queryByText('6222021234567890')).toBeNull()
+    expect(screen.queryByText('unknown-secret')).toBeNull()
   })
 
-  it('uses server-masked values and never masks a plaintext value in the browser', async () => {
-    render(
-        <Rbac3Provider client={client}>
-        <FieldGuard
-          policyKey="orders:detail"
-          fieldCode="accountNo"
-          value="6222021234567890"
-          maskedValue="6222 **** **** 7890"
-        />
-      </Rbac3Provider>,
-    )
-
-    await waitFor(() => expect(screen.getByText('6222 **** **** 7890')).toBeInTheDocument())
-    expect(screen.queryByText('6222021234567890')).not.toBeInTheDocument()
+  it('rejects stale field projections even when the user has the matching code', async () => {
+    const props = fixture()
+    render(<Rbac3Provider {...props} resourceReferences={references} fieldCatalog={{ ...fields, catalogVersion: '6' }}>
+      <FieldGuard fieldKey="order.field.accountNo" value="plaintext" maskedValue="masked" fallback="denied" />
+    </Rbac3Provider>)
+    await waitFor(() => expect(props.client.getPermissionSnapshot).toHaveBeenCalled())
+    expect(screen.getByText('denied')).toBeInTheDocument()
+    expect(screen.queryByText('masked')).toBeNull()
   })
 })

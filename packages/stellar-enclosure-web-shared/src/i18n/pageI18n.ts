@@ -1,10 +1,15 @@
 import { createInstance } from 'i18next'
+import type { AuthRequestContext } from '../auth/authRequestContext'
+import { catalogScopeKey, copyPermissionBinding, isCatalogScope, isPermissionSnapshotContext, permissionBindingKey, snapshotExpiry, type CatalogScope, type PermissionSnapshotContext } from '../permissions/permissionSnapshot'
+import { canonicalJdk25Locale, isCanonicalJdk25Locale } from './jdk25Locale'
 
 export interface PageI18nQuery {
   readonly bizCode: string
   readonly namespaceCode: string
   readonly env: string
   readonly appCode: string
+  readonly catalogScopeId: string
+  readonly catalogActivationVersion: string
   readonly pageCode: string
   readonly locale: string
 }
@@ -15,22 +20,26 @@ export interface PageI18nBundle {
   readonly defaultLocale: string
   readonly version: string
   readonly messages: Readonly<Record<string, string>>
+  readonly catalogScope: CatalogScope
+  readonly catalogActivationVersion: string
+  readonly sourceVersions: Readonly<Record<string, string>>
+  readonly publishedOverrideRevisions: Readonly<Record<string, string>>
+  readonly diagnostics: readonly { readonly pageCode: string; readonly key: string; readonly reason: string }[]
 }
 
 export type PageI18nValues = Readonly<Record<string, string | number>>
 
-export interface PageI18nResult {
-  readonly pageCode: string
-  readonly locale: string
-  readonly defaultLocale: string
+export interface PageI18nResult extends Omit<PageI18nBundle, 'version'> {
   readonly version: string | null
-  readonly messages: Readonly<Record<string, string>>
   readonly source: 'remote' | 'cache' | 'stale' | 'fallback'
   readonly error?: unknown
   readonly t: (key: string, values?: PageI18nValues) => string
 }
 
+export interface PageI18nIdentity extends PermissionSnapshotContext { readonly snapshotExpiresAt: string }
+
 export interface PageI18nLoaderOptions {
+  readonly requestContext: AuthRequestContext
   readonly fetchBundle: (query: PageI18nQuery, options: { readonly signal: AbortSignal }) => Promise<PageI18nBundle>
   readonly cacheTtlMs?: number
 }
@@ -41,8 +50,8 @@ export interface PageI18nLoadOptions {
 }
 
 export interface PageI18nLoader {
-  /** Use an authenticated tenant/session identity, never a token or a page-supplied tenant. */
-  readonly setIdentity: (identity: string | null) => void
+  /** Use verified issuer/tenant/subject facts and the local request epoch, never a token or page-supplied tenant. */
+  readonly setIdentity: (identity: PageI18nIdentity | null) => void
   readonly load: (query: PageI18nQuery, options?: PageI18nLoadOptions) => Promise<PageI18nResult>
   readonly clear: () => void
   readonly dispose: () => void
@@ -61,7 +70,8 @@ interface PendingBundle {
 
 const copyMessages = (messages: Readonly<Record<string, string>>): Readonly<Record<string, string>> => {
   if (!messages || typeof messages !== 'object' || Array.isArray(messages)
-    || Object.values(messages).some((value) => typeof value !== 'string')) {
+    || Object.entries(messages).some(([key, value]) => typeof value !== 'string'
+      || !/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/.test(key) || key.split('.').some(part => ['__proto__', 'constructor', 'prototype'].includes(part)))) {
     throw new Error('Page i18n messages must be a flat string map')
   }
   return Object.freeze({ ...messages })
@@ -91,13 +101,16 @@ export const createPageI18nLoader = (options: PageI18nLoaderOptions): PageI18nLo
   const latestRequests = new Map<string, AbortController>()
   const namespaces = new Map<string, string>()
   const resources = new Map<string, Set<string>>()
-  let identity: string | null = null
+  let identity: PageI18nIdentity | null = null
+  let identityKey: string | null = null
+  let identityTimer: ReturnType<typeof setTimeout> | undefined
   let generation = 0
   let namespaceSequence = 0
   let disposed = false
 
   const assertActive = (expectedGeneration: number): void => {
-    if (disposed || identity === null || generation !== expectedGeneration) {
+    if (disposed || identity === null || generation !== expectedGeneration || identity.requestEpoch !== options.requestContext.epoch
+      || snapshotExpiry(identity.snapshotExpiresAt) <= Date.now()) {
       throw new DOMException('Page i18n identity is no longer active', 'AbortError')
     }
   }
@@ -143,7 +156,8 @@ export const createPageI18nLoader = (options: PageI18nLoaderOptions): PageI18nLo
     ...(error === undefined ? {} : { error }),
     t: (key, values) => {
       // A component may retain an old result after logout or a tenant switch.
-      if (disposed || generation !== expectedGeneration || identity === null) return key
+      if (disposed || generation !== expectedGeneration || identity === null || identity.requestEpoch !== options.requestContext.epoch
+        || snapshotExpiry(identity.snapshotExpiresAt) <= Date.now()) return key
       return i18n.t(key, { lng: bundle.locale, ns: namespace, replace: values, nest: false })
     },
   })
@@ -151,14 +165,21 @@ export const createPageI18nLoader = (options: PageI18nLoaderOptions): PageI18nLo
   const load: PageI18nLoader['load'] = async (query, loadOptions = {}) => {
     const expectedGeneration = generation
     assertActive(expectedGeneration)
+    const owner = identity
+    if (owner === null) throw new DOMException('Page i18n identity is no longer active', 'AbortError')
     if ([query.bizCode, query.namespaceCode, query.env, query.appCode, query.pageCode]
       .some((value) => typeof value !== 'string' || !value.trim())) {
       throw new Error('Page i18n scope and pageCode are required')
     }
-    const locale = Intl.getCanonicalLocales(query.locale)[0]
-    if (!locale) throw new Error('Page i18n locale is required')
+    const locale = canonicalJdk25Locale(query.locale)
+    if (!isCanonicalJdk25Locale(locale)) throw new Error('Page i18n locale is invalid')
+    if (query.catalogScopeId !== owner.catalogScope.catalogScopeId || query.catalogActivationVersion !== owner.catalogVersion
+      || query.bizCode !== owner.catalogScope.businessCode || query.namespaceCode !== owner.catalogScope.namespaceCode
+      || query.env !== owner.catalogScope.environment || query.appCode !== owner.catalogScope.applicationCode) {
+      throw new Error('Page i18n query does not match the current catalog scope and version')
+    }
     const normalizedQuery = { ...query, locale }
-    const scopeKey = JSON.stringify([query.bizCode, query.namespaceCode, query.env, query.appCode, query.pageCode])
+    const scopeKey = JSON.stringify([identityKey, query.catalogScopeId, query.catalogActivationVersion, query.bizCode, query.namespaceCode, query.env, query.appCode, query.pageCode])
     const cacheKey = JSON.stringify([scopeKey, locale])
     const namespace = namespaces.get(scopeKey) ?? `page-${++namespaceSequence}`
     namespaces.set(scopeKey, namespace)
@@ -183,11 +204,17 @@ export const createPageI18nLoader = (options: PageI18nLoaderOptions): PageI18nLo
         if (!bundle || bundle.pageCode !== query.pageCode || bundle.locale !== locale
           || typeof bundle.version !== 'string' || !bundle.version
           || typeof bundle.defaultLocale !== 'string'
-          || Intl.getCanonicalLocales(bundle.defaultLocale)[0] !== bundle.defaultLocale) {
+          || !isCanonicalJdk25Locale(bundle.defaultLocale) || !isCatalogScope(bundle.catalogScope)
+          || catalogScopeKey(bundle.catalogScope) !== catalogScopeKey(owner.catalogScope) || bundle.catalogActivationVersion !== owner.catalogVersion
+          || !versionMap(bundle.sourceVersions, /^[a-f0-9]{64}$/) || !versionMap(bundle.publishedOverrideRevisions, /^(?:0|[1-9][0-9]{0,18})$/)) {
           throw new Error('Page i18n bundle does not match the requested page and locale')
         }
         const previous = cache.get(cacheKey)
-        const checkedBundle = Object.freeze({ ...bundle, messages: copyMessages(bundle.messages) })
+        if (previous?.bundle.version === bundle.version && (mapKey(previous.bundle.sourceVersions) !== mapKey(bundle.sourceVersions)
+          || mapKey(previous.bundle.publishedOverrideRevisions) !== mapKey(bundle.publishedOverrideRevisions))) throw new Error('Page i18n version metadata is inconsistent')
+        const checkedBundle = Object.freeze({ ...bundle, catalogScope: Object.freeze({ ...bundle.catalogScope }),
+          sourceVersions: Object.freeze({ ...bundle.sourceVersions }), publishedOverrideRevisions: Object.freeze({ ...bundle.publishedOverrideRevisions }),
+          diagnostics: Object.freeze([...(bundle.diagnostics ?? [])]), messages: copyMessages(bundle.messages) })
         const entry = {
           bundle: previous?.bundle.version === bundle.version ? previous.bundle : checkedBundle,
           namespace,
@@ -209,6 +236,13 @@ export const createPageI18nLoader = (options: PageI18nLoaderOptions): PageI18nLo
       return result(entry.bundle, namespace, 'remote', expectedGeneration)
     } catch (error) {
       assertRequestActive(expectedGeneration, cacheKey, request.controller)
+      const status = typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined
+      if (status === 401 || status === 403 || status === 409) {
+        clear(); clearTimeout(identityTimer)
+        if (status !== 403) { identity = null; identityKey = null }
+        throw error
+      }
+      assertRequestActive(expectedGeneration, cacheKey, request.controller)
       const previous = cache.get(cacheKey)
       if (previous) return result(previous.bundle, namespace, 'stale', expectedGeneration, error)
       if (loadOptions.fallbackMessages === undefined) throw error
@@ -216,25 +250,41 @@ export const createPageI18nLoader = (options: PageI18nLoaderOptions): PageI18nLo
       assertRequestActive(expectedGeneration, cacheKey, request.controller)
       const messages = copyMessages(loadOptions.fallbackMessages)
       install(namespace, locale, messages)
-      return result({ pageCode: query.pageCode, locale, defaultLocale: locale, version: null, messages },
+      return result({ pageCode: query.pageCode, locale, defaultLocale: locale, version: null, messages, catalogScope: owner.catalogScope,
+        catalogActivationVersion: owner.catalogVersion, sourceVersions: {}, publishedOverrideRevisions: {}, diagnostics: [] },
         namespace, 'fallback', expectedGeneration, error)
     }
   }
 
+  const unsubscribe = options.requestContext.subscribe(() => { clear(); clearTimeout(identityTimer); identity = null; identityKey = null })
+
   return {
     setIdentity: (nextIdentity) => {
       if (disposed) throw new Error('Page i18n loader has been disposed')
-      if (nextIdentity !== null && !nextIdentity.trim()) throw new Error('Page i18n identity must not be empty')
-      if (identity === nextIdentity) return
-      clear()
-      identity = nextIdentity
+      if (nextIdentity !== null && (!isPermissionSnapshotContext(nextIdentity) || nextIdentity.requestEpoch !== options.requestContext.epoch
+        || !(snapshotExpiry(nextIdentity.snapshotExpiresAt) > Date.now()))) throw new Error('Page i18n identity context is invalid or expired')
+      const nextKey = nextIdentity === null ? null : JSON.stringify([permissionBindingKey(nextIdentity), nextIdentity.requestEpoch, nextIdentity.snapshotExpiresAt])
+      if (identityKey === nextKey) return
+      clear(); clearTimeout(identityTimer)
+      identityKey = nextKey
+      identity = nextIdentity === null ? null : Object.freeze({ ...copyPermissionBinding(nextIdentity),
+        requestEpoch: nextIdentity.requestEpoch, snapshotExpiresAt: nextIdentity.snapshotExpiresAt })
+      if (identity !== null) identityTimer = setTimeout(() => {
+        clear(); identity = null; identityKey = null
+      }, Math.max(1, Math.min(snapshotExpiry(identity.snapshotExpiresAt) - Date.now(), 2_147_483_647)))
     },
     load,
     clear,
     dispose: () => {
-      clear()
-      identity = null
+      clear(); clearTimeout(identityTimer); unsubscribe()
+      identity = null; identityKey = null
       disposed = true
     },
   }
 }
+
+const versionMap = (value: unknown, pattern: RegExp): value is Readonly<Record<string, string>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+  && Object.entries(value).every(([key, version]) => key.length > 0 && key.length <= 128 && !['__proto__', 'constructor', 'prototype'].includes(key)
+    && typeof version === 'string' && pattern.test(version))
+const mapKey = (value: Readonly<Record<string, string>>): string => JSON.stringify(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))

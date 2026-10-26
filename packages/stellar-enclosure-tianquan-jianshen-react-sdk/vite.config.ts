@@ -10,7 +10,9 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
-      external: (id) => id === 'react'
+      external: (id) => id === '@stellar-enclosure/stellar-enclosure-web-shared'
+        || id.startsWith('@stellar-enclosure/stellar-enclosure-web-shared/')
+        || id === 'react'
         || id.startsWith('react/')
         || id === 'react-dom'
         || id.startsWith('react-dom/'),

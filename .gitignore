@@ -16,3 +16,6 @@ __pycache__/
 *.log
 stellar-enclosure-archetypes/.generated/
 stellar-enclosure-archetypes/.generated.*/
+
+.generated/
+/permission-toolchain.lock.json

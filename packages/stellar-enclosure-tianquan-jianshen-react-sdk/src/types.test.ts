@@ -26,13 +26,13 @@ describe('Tianquan-Jianshen TypeScript contracts', () => {
     expect(field.jsonPath).toBe('$.bankAccountNo')
   })
 
-  it('models frontend resource suggestions and page/button API declarations separately', () => {
+  it('models code-declared requirements separately from API references', () => {
     const definition: FrontendResourceDefinition = {
-      kind: 'ACTION', code: 'orders.refund', name: 'Refund', routeCode: 'orders', resourceCode: 'orders',
-      suggestedPermissionCode: 'orders:refund', apiResourceCodes: ['orders.api.refund'],
+      key: 'orders.button.refund', type: 'BUTTON', target: { pageKey: 'orders.page.list', actionKey: 'refund' },
+      requirement: { mode: 'ALL', codes: ['orders:refund'] }, i18n: { pageCode: 'orders', labelKey: 'refund' },
     }
-    expect(definition.suggestedPermissionCode).toBe('orders:refund')
-    expect(definition.apiResourceCodes).toEqual(['orders.api.refund'])
+    expect(definition.requirement).toEqual({ mode: 'ALL', codes: ['orders:refund'] })
+    expect(definition.key).toBe('orders.button.refund')
   })
 
   const representativeErrors: readonly Rbac3ApiError[] = [
