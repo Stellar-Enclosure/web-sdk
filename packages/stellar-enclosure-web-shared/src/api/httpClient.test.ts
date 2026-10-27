@@ -34,6 +34,16 @@ describe('createHttpClient', () => {
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
+  it('retains only a valid opaque decision id from a denied response', async () => {
+    const id = '12345678-1234-4234-8234-123456789abc'
+    const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({code: 'AUTHORIZATION_DENIED'}),
+      {status: 403, headers: {'X-Permission-Decision-Id': id}})).mockResolvedValueOnce(new Response('{}',
+      {status: 403, headers: {'X-Permission-Decision-Id': 'not-a-decision-id'}}))
+    const client = createHttpClient({baseUrl: '/apps/one', credentials: 'include', fetch: fetcher})
+    await expect(client.request('/api/value')).rejects.toMatchObject({status: 403, decisionId: id})
+    await expect(client.request('/api/value')).rejects.toMatchObject({status: 403, decisionId: undefined})
+  })
+
   it.each([401, 403, 503])('does not replay status %s and separates identity, permission and availability', async status => {
     const fetcher = vi.fn().mockResolvedValue(response({ code: 'REJECTED' }, status))
     const context = new AuthRequestContext(); const onAuthError = vi.fn()

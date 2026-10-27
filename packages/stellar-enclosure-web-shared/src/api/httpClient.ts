@@ -61,8 +61,10 @@ export const createHttpClient = (config: HttpClientConfig): HttpClient => {
         const nested = isRecord(body.error) ? body.error : body
         const code = typeof nested.code === 'string' ? nested.code : typeof body.status === 'string' ? body.status : 'REQUEST_FAILED'
         const traceId = body.traceId ?? (isRecord(body.meta) ? body.meta.traceId : undefined)
+        const decisionId = response.headers.get('X-Permission-Decision-Id')
         throw new ApiError(typeof nested.message === 'string' ? nested.message : `Request failed (${response.status})`, response.status, code,
-          { requestId: typeof traceId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(traceId) ? traceId : undefined })
+          { requestId: typeof traceId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(traceId) ? traceId : undefined,
+            decisionId: decisionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(decisionId) ? decisionId : undefined })
       }
       capture.assertCurrent()
       signal.throwIfAborted()

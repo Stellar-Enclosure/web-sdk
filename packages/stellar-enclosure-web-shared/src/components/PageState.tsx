@@ -1,6 +1,6 @@
 import { Alert, Button, Empty, Skeleton, Space } from 'antd'
 import type { ReactNode } from 'react'
-import { classifyApiError } from '../api/errors'
+import { ApiError, classifyApiError } from '../api/errors'
 import { useT } from '../i18n'
 
 export interface PageStateProps {
@@ -40,6 +40,7 @@ export const PageState = ({
         type={classified.type === 'permission' ? 'warning' : 'error'}
         showIcon
         message={showPartial ? `${t('page.partial', '部分数据加载失败')}: ${errorTitle}` : errorTitle}
+        description={error instanceof ApiError && error.decisionId ? `${t('page.decisionId', '决策编号')}: ${error.decisionId}` : undefined}
         action={onRetry ? <Button size="small" onClick={onRetry}>{t('retry', '重试')}</Button> : undefined}
         style={{ marginBottom: showPartial ? 16 : 0 }}
       />

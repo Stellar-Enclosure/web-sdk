@@ -2,19 +2,21 @@ export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly requestId?: string
+  readonly decisionId?: string
   readonly retryable: boolean
 
   constructor(
     message: string,
     status: number,
     code: string,
-    options?: { requestId?: string | undefined; retryable?: boolean },
+    options?: { requestId?: string | undefined; decisionId?: string | undefined; retryable?: boolean },
   ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.requestId = options?.requestId
+    this.decisionId = options?.decisionId
     this.retryable = options?.retryable ?? (status >= 500 || status === 0 || status === 429)
   }
 }
