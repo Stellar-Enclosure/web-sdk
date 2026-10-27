@@ -168,3 +168,43 @@ node "$PAC_SDK_DIR/scripts/permissions/ci.mjs" --phase activate --selection acti
 
 `register` 共用同一套 diff→sync→status 客户端，未知结果只查询原操作。`activate` 必须由外部受信部署阶段明确调用；普通 build、PR 和注册成功都不会触发激活。前端 `--artifact` 是本次 dist 目录，Java 是最终 exec.jar；两者都验证各自 evidence 并要求完整 Manifest 与实际字节一致。单测使用严格 HTTP fixture、真实 ZIP 文件及实际固定 RC 资源；不代表真实服务、数据库、Outbox、CI 或部署已验收。
 
+Jianshen 和 Shoubing 前端的 Python CI 适配逻辑共用本目录 `consumer-ci.py`。消费者的薄启动脚本仅在获取 SDK 前读取并校验固定 commit；获取后必须匹配干净的 SDK checkout，才执行公共适配器。SDK 源摘要包含该 Python 文件。更新消费者前需先在受信流水线发布包含该文件的 SDK commit，再更新各自锁；不能把未提交源码或旧 commit 当作正式工具链。
+
+## 固定后端 Manifest 的类型化引用
+
+消费者可在 `permission-manifest.config.json` 设置 `backendReferences: {producerId, manifestDigest}`，并通过 `PAC_BACKEND_MANIFEST` 指向该完整 Java Manifest。SDK 在每次扫描之前验证合同、应用、producer、FULL 和规范化 Manifest 摘要，并在 `.generated/permissions/backend-references.ts` 生成只读的命名常量；字段、API 和权限定义仍由后端所有。生成失败会删除旧输出，扫描不能退回旧结果。命名导出可由打包器删除未使用常量，生成文件不应手工维护。
+
+前端仍须显式声明自己的资源、按钮、字段用途和权限引用；生成常量只替换重复字符串，运行时仍使用当前字段目录和授权快照。摘要固定输入内容，并不证明制品已部署或取得资格；受信制品、READY、完整 producer 集合和显式激活仍由现有服务端验证。
+
+```sh
+node "$PAC_CLI" backend-references --lock "$PAC_TOOLCHAIN_LOCK" \
+  --manifest "$PAC_BACKEND_MANIFEST" --manifest-digest "$PAC_BACKEND_MANIFEST_DIGEST" \
+  --producer-id "$PAC_BACKEND_PRODUCER" --business-code "$PAC_BUSINESS" \
+  --application-code "$PAC_APPLICATION" --output .generated/permissions/backend-references.ts
+```
+
+## 离线发布计划
+
+`release-plan` 读取只读清单，不注册、不部署、不激活。清单可以引用已保存的服务端 descriptor、producer 列表、当前各 FULL Manifest、候选注册结果/最终制品 evidence 和资格回执文件；路径相对于清单文件。候选版本取自注册回执，旧版本取自 descriptor，无需逐项填写激活版本。
+
+```json
+{
+  "schemaVersion": 1,
+  "descriptor": "descriptor.json",
+  "producerList": "producers.json",
+  "currentManifests": ["api-manifest.json", "web-manifest.json"],
+  "candidates": [{"manifest": "candidate-manifest.json", "registration": "registration.json", "evidence": "artifact-evidence.json", "diff": "server-diff.json"}],
+  "qualifications": ["api-qualification.json", "web-qualification.json"],
+  "roleSnapshots": "reviewed-role-snapshots.json"
+}
+```
+
+```sh
+node "$PAC_CLI" release-plan --lock "$PAC_TOOLCHAIN_LOCK" \
+  --inventory release-inventory.json --output release-plan.json
+```
+
+计划核对当前集合与摘要、目标作用域、候选回执、引用闭包以及资格的制品和到期时间。候选需带绑定到当前激活修订的服务端 Diff；缺失、冲突或报告授权扩大时为 `BLOCKED`（命令退出码 3），有变更且资料完整时为 `REVIEW_REQUIRED`，无变更时为 `NO_CHANGES`。本地文件本身不是服务器真实性证明，计划不会声称未受影响的 API wire 合同兼容，也不会替代服务端基于实际角色的 Diff、资格重验、显式激活及可信部署证明。任一输入或修订变化时重新生成并审查。
+
+可选 `roleSnapshots` 为同一作用域和当前激活修订下经授权取得或显式构造的角色有效权限集合：`{target, expectedActiveRevision, roles:[{roleId, permissionCodes}]}`。计划仅对发生变化的 API/页面/按钮及 FIELD 计算表达式前后结果，并列出受影响权限字符在选定 Manifest 中引用它的资源及提供的角色集合；它不执行操作，也不计算 OAuth Scope、数据范围、字段实际 inputBinding 或当前角色事实。结果是待复核的影响估计，不保证输入角色集合完整，更不是 Runtime 授权决定；未提供时明确标为 `NOT_PROVIDED`。计划输出在支持 POSIX 权限的文件系统中以 0600 创建，输入文件及其目录也应按权限审计数据保护。
+

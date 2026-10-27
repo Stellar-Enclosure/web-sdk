@@ -12,7 +12,7 @@ test('a failed consumer build invalidates prior manifest and deployment evidence
   context.after(() => rm(root, { recursive: true, force: true }))
   await mkdir(join(root, '.generated/permissions'), { recursive: true })
   await mkdir(join(root, 'dist'))
-  const files = ['.generated/permissions/manifest-v1.json', '.generated/permissions/manifest-v1.json.report.json',
+  const files = ['.generated/permissions/manifest-v1.json', '.generated/permissions/manifest-v1.json.report.json', '.generated/permissions/backend-references.ts',
     '.generated/permissions/build-evidence.json', '.generated/permissions/artifact-record.json', 'dist/permission-build.json']
   for (const path of files) await writeFile(join(root, path), '{"status":"old-success"}')
   await assert.rejects(buildConsumer({ root, env: {} }), /TOOLCHAIN_LOCK_AND_CONTRACT/)

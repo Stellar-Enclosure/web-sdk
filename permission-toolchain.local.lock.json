@@ -4,7 +4,7 @@
   "nodeMajor": 24,
   "sdk": {
     "commit": null,
-    "sourceDigest": "561b09e48d9c9844bc07eef9ab75adb5fc4ababb7fd45dcad19cadd234e8d548",
+    "sourceDigest": "92035ad0a1357db8fc08dde605202ca43d7e426c1022221223dfac7bdd289bf0",
     "dependencyLockSha256": "d2c4c8f5c4dc82c71d116f26dd1e05969868fb1465f33f688654584737973598"
   },
   "contract": {

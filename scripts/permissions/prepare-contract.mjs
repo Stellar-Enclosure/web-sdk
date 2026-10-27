@@ -23,7 +23,7 @@ export const toolSourceDigest = async () => {
     const absolute = resolve(toolRoot, path)
     if ((await stat(absolute)).isDirectory()) {
       for (const name of (await readdir(absolute)).sort()) await visit(path + '/' + name)
-    } else if (!path.includes('.test.') && /\.(?:mjs|ts|json)$/.test(path)) entries.push([path, sha256(await readFile(absolute))])
+    } else if (!path.includes('.test.') && /\.(?:mjs|ts|json|py)$/.test(path)) entries.push([path, sha256(await readFile(absolute))])
   }
   for (const root of roots) await visit(root)
   return sha256(canonicalJson(Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b, 'en')))))

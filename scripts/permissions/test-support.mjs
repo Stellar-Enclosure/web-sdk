@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadContract, toolRoot } from './prepare-contract.mjs'
 
-export const lockFile = join(toolRoot, 'permission-toolchain.local.lock.json')
+export const lockFile = process.env.PAC_TOOLCHAIN_LOCK ?? join(toolRoot, 'permission-toolchain.local.lock.json')
 export const contract = await loadContract(lockFile)
 export const fixture = async (context, files = {}) => {
   const root = await mkdtemp(join(tmpdir(), 'stellar-permission-scan-'))

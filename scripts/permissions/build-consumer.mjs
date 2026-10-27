@@ -13,7 +13,7 @@ export const buildConsumer = async ({ root = process.cwd(), env = process.env } 
   const generated = resolve(root, '.generated/permissions')
   const manifestPath = resolve(generated, 'manifest-v1.json')
   const evidencePath = resolve(generated, 'build-evidence.json')
-  for (const path of [manifestPath, manifestPath + '.report.json', evidencePath,
+  for (const path of [manifestPath, manifestPath + '.report.json', evidencePath, resolve(generated, 'backend-references.ts'),
     resolve(generated, 'artifact-record.json'), resolve(root, 'dist/permission-build.json')]) await rm(path, { force: true })
   if (!env.PAC_TOOLCHAIN_LOCK || !env.PAC_CONTRACT_ARTIFACT) throw new Error('PAC_TOOLCHAIN_LOCK_AND_CONTRACT_ARTIFACT_REQUIRED')
   const lockFile = resolve(root, env.PAC_TOOLCHAIN_LOCK)
@@ -31,7 +31,7 @@ export const buildConsumer = async ({ root = process.cwd(), env = process.env } 
   const configPath = resolve(generated, 'scan-config.json')
   await writeFile(configPath, canonicalJson(buildConfig) + '\n')
   await main(['prepare', '--lock', lockFile, '--artifact', resolve(root, env.PAC_CONTRACT_ARTIFACT)], root)
-  const scan = await main(['scan', '--config', configPath, '--root', root, '--output', manifestPath, '--lock', lockFile], root)
+  const scan = await main(['scan', '--config', configPath, '--root', root, '--output', manifestPath, '--lock', lockFile], root, {environment: env})
   await main(['validate', '--manifest', manifestPath, '--lock', lockFile], root)
   const evidence = { schemaVersion: 1, mode: lock.mode, application: config.application, producerId: config.producerId,
     artifact: buildConfig.artifact, workingTreeChanged, sourceDigest: scan.sourceDigest, policyDigest: scan.policyDigest,

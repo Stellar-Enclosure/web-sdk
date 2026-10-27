@@ -28,7 +28,7 @@ export const scanTypescript = async (config, { root, validate }) => {
     || new Set(config.expectedModules.map(value => value.toLowerCase())).size !== config.expectedModules.length
     || !config.modules || typeof config.modules !== 'object' || Array.isArray(config.modules)
     || !['FULL', 'PARTIAL'].includes(config.snapshotMode ?? 'FULL')) throw new Error('SCAN_CONFIG_INVALID')
-  const allowedKeys = new Set(['schemaVersion', 'application', 'producerId', 'ownedKeyPrefixes', 'expectedModules', 'modules', 'artifact', 'snapshotMode', 'clearIntent', 'tsconfig', 'toolchainLock'])
+  const allowedKeys = new Set(['schemaVersion', 'application', 'producerId', 'ownedKeyPrefixes', 'expectedModules', 'modules', 'artifact', 'snapshotMode', 'clearIntent', 'tsconfig', 'toolchainLock', 'backendReferences'])
   if (Object.keys(config).some(key => !allowedKeys.has(key))) throw new Error('SCAN_CONFIG_UNKNOWN_PROPERTY')
   const moduleIds = Object.keys(config.modules).sort()
   const mode = config.snapshotMode ?? 'FULL'

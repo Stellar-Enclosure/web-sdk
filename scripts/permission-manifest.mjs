@@ -8,6 +8,9 @@ import { parseStrictJson } from './permissions/validate-manifest.mjs'
 import { scanTypescript } from './permissions/scan-typescript.mjs'
 import { canonicalJson, manifestDigests, compareManifests, sha256 } from './permissions/canonicalize.mjs'
 import { createRegistrationClient, loadTargetProfile, PermissionToolFailure, preparePlanRequest, registrationRequest, validateActivation, waitForOperation } from './permissions/registration-client.mjs'
+import { backendReferences, backendReferencesSource } from './permissions/backend-references.mjs'
+import { prepareConsumerBackend } from './permissions/prepare-consumer-backend.mjs'
+import { createReleasePlan, loadReleaseInventory } from './permissions/release-plan.mjs'
 
 const parse = argv => {
   const [command, ...values] = argv
@@ -21,6 +24,8 @@ const parse = argv => {
     lock: ['artifact', 'artifact-sha256', 'output', 'contract-directory', 'mode', 'sdk-commit'],
     prepare: ['lock', 'artifact'], verify: ['lock', 'purpose'],
     scan: ['config', 'output', 'lock', 'root'], validate: ['manifest', 'lock'],
+    'backend-references': ['manifest', 'manifest-digest', 'producer-id', 'business-code', 'application-code', 'output', 'lock'],
+    'release-plan': ['inventory', 'output', 'lock'],
     diff: ['manifest', 'baseline', 'output', 'lock', 'target', 'target-file', 'expected-producer-revision', 'expected-active-revision', 'dry-run'],
     sync: ['plan', 'operation-id', 'lock', 'target', 'target-file', 'output', 'dry-run'],
     status: ['operation-id', 'kind', 'wait-seconds', 'lock', 'target', 'target-file', 'output'],
@@ -34,10 +39,10 @@ const required = (flags, name) => {
   if (!flags[name]) throw new Error('CLI_ARGUMENT_REQUIRED:' + name)
   return flags[name]
 }
-export const atomicJson = async (path, value) => {
+export const atomicJson = async (path, value, { mode } = {}) => {
   await mkdir(dirname(path), { recursive: true })
   const temporary = path + '.' + process.pid + '.tmp'
-  try { await writeFile(temporary, canonicalJson(value) + '\n', { flag: 'wx' }); await rename(temporary, path) }
+  try { await writeFile(temporary, canonicalJson(value) + '\n', { flag: 'wx', ...(mode === undefined ? {} : {mode}) }); await rename(temporary, path) }
   finally { await rm(temporary, { force: true }) }
 }
 
@@ -60,12 +65,14 @@ export const main = async (argv = process.argv.slice(2), cwd = process.cwd(), ru
     await rm(output, { force: true })
     try {
       const config = parseStrictJson(await readFile(configPath))
-      const contract = await loadContract(flags.lock ? lockFile : resolve(dirname(configPath), config.toolchainLock ?? 'permission-toolchain.lock.json'))
+      const consumerLock = flags.lock ? lockFile : resolve(dirname(configPath), config.toolchainLock ?? 'permission-toolchain.lock.json')
+      const contract = await loadContract(consumerLock)
       const root = resolve(cwd, flags.root ?? dirname(configPath))
       if (contract.lock.mode === 'PINNED_COMMIT') {
         const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
         if (git(['rev-parse', 'HEAD']) !== config.artifact?.commit || git(['status', '--porcelain'])) throw new Error('IMMUTABLE_PRODUCER_CHECKOUT_REQUIRED')
       }
+      await prepareConsumerBackend({root, env: {...(runtime.environment ?? process.env), PAC_TOOLCHAIN_LOCK: consumerLock}, prepared: true, config})
       const scan = await scanTypescript(config, { root, validate: contract.validate })
       const digests = manifestDigests(scan.manifest)
       await atomicJson(output, scan.manifest)
@@ -144,6 +151,33 @@ export const main = async (argv = process.argv.slice(2), cwd = process.cwd(), ru
       throw error
     }
   }
+  if (command === 'backend-references') {
+    const output = resolve(cwd, required(flags, 'output'))
+    const input = resolve(cwd, required(flags, 'manifest'))
+    if (output === input || output === lockFile) throw new Error('BACKEND_REFERENCE_OUTPUT_CONFLICT')
+    await rm(output, {force: true})
+    const contract = await loadContract(lockFile)
+    const manifest = contract.validate(parseStrictJson(await readFile(input)))
+    const references = backendReferences(manifest, {manifestDigest: required(flags, 'manifest-digest'),
+      producerId: required(flags, 'producer-id'), businessCode: required(flags, 'business-code'),
+      applicationCode: required(flags, 'application-code')})
+    await mkdir(dirname(output), {recursive: true})
+    const temporary = output + '.' + process.pid + '.tmp'
+    try { await writeFile(temporary, backendReferencesSource(references), {flag: 'wx'}); await rename(temporary, output) }
+    finally { await rm(temporary, {force: true}) }
+    return {status: 'GENERATED', mode: contract.lock.mode, producerId: references.producerId,
+      manifestDigest: references.manifestDigest, artifact: references.artifact, output}
+  }
+  if (command === 'release-plan') {
+    const output = resolve(cwd, required(flags, 'output'))
+    const input = resolve(cwd, required(flags, 'inventory'))
+    if (output === input || output === lockFile) throw new Error('RELEASE_PLAN_OUTPUT_CONFLICT')
+    await rm(output, {force: true})
+    const contract = await loadContract(lockFile)
+    const plan = createReleasePlan(await loadReleaseInventory(input), {validate: contract.validate})
+    await atomicJson(output, plan, {mode: 0o600})
+    return {status: plan.status, producers: plan.producers.length, blockers: plan.blockers.length, output}
+  }
   const contract = await loadContract(lockFile)
   if (command === 'verify') {
     if (flags.purpose && !['local-build', 'distribution'].includes(flags.purpose)) throw new Error('VERIFY_PURPOSE_INVALID')
@@ -164,7 +198,10 @@ export const main = async (argv = process.argv.slice(2), cwd = process.cwd(), ru
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().then(result => process.stdout.write(JSON.stringify(result) + '\n')).catch(error => {
+  main().then(result => {
+    process.stdout.write(JSON.stringify(result) + '\n')
+    if (result.status === 'BLOCKED') process.exitCode = 3
+  }).catch(error => {
     const code = error instanceof PermissionToolFailure ? error.message : /^[A-Z][A-Z0-9_]+/.exec(error?.message ?? '')?.[0] ?? 'PERMISSION_TOOL_INPUT_INVALID'
     process.stderr.write(JSON.stringify({status: error instanceof PermissionToolFailure && error.exitCode === 6 ? 'PENDING' : 'FAILED', code, ...(error instanceof PermissionToolFailure ? error.details : {})}) + '\n')
     process.exitCode = error instanceof PermissionToolFailure ? error.exitCode : 2
