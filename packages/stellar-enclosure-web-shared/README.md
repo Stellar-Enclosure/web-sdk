@@ -11,11 +11,13 @@ Tianquan-Jianshen）以及 `stellar-enclosure-platform-admin-portal` 微前端�
 - **Auth**：`createGatewayAuthClient`、`AuthRequestContext` 与 `GatewayAuthError`。固定 `appAlias` 对应 `/apps/{alias}/auth/*`；JS 只读取最小身份事实和短期 CSRF，不读取或保存 Access/Refresh。`identity()` 替代旧 Session 读取，`refresh(operationId)` 显式执行一次刷新，`refreshStatus(operationId)` 只读状态，不恢复凭据。`logout()` 关闭当前应用；`logout({sso:true})` 随后导航到 IdP SSO 退出。没有旧 `/bff` 探测或兼容回退。
 - **Permissions**：独立 `/permissions` 入口提供类型化静态声明、`ResourceKey<T>` 与不依赖 React 的 `evaluateRequirement`。AST 导出和固定合同制品准备见 [离线工具说明](../../scripts/permissions/README.md)。
 - **i18n**：`initI18n`、`I18nProvider`、`useT`、`changeLanguage`、`currentLanguage`，以及读取 Tianshu 已发布页面语言包的 `createPageI18nLoader`。
-- **Components / Hooks**：`PageHeader`、`PageState`、`PageTemplate`、
+- **Components / Hooks**：`PageHeader`、`PageState`、`PageTemplate`、`ListTemplateSettings`、`ListColumnSettings`、`ListColumnSelector`、
   `AppErrorBoundary`、`usePermission`、`useFeatureQuery`。
 - **Vite 插件**（`@stellar-enclosure/stellar-enclosure-web-shared/vite-plugin`）：`egonFaviconPlugin()`，统一为四个控制台与 Portal 宿主注入 `stellar-enclosure-platform/favicon.png`（dev/preview 中间件 + index.html 注入 + build 产物输出）。
 
 ## 使用
+
+`ListTemplateSettings` 根据业务后端返回的模板提供选择、切换、系统/个人模板编辑和字段排序，通过 `actions` 与 `refresh` 回调访问业务服务。`ListColumnSettings` 可单独编辑可见列，`ListColumnSelector` 可嵌入其他编辑弹窗。调用方必须根据鉴神字段权限过滤候选字段，并负责通过自己的业务服务读取和保存天枢模板；组件不持有凭据、不自行决定权限。候选字段在编辑期间被撤销时，列选择器不会再将其返回。
 
 ```tsx
 import { EnterpriseLayout, type EnterpriseLayoutConfig } from '@stellar-enclosure/stellar-enclosure-web-shared'
