@@ -6,8 +6,8 @@
       "name": "@stellar-enclosure/stellar-enclosure-web-shared",
       "version": "0.0.1",
       "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz",
-      "integrity": "sha512-TESP1sF2Nvl/wAJAZayM8UNbCWaOIWnGndnva8lgbI7p4+cMqqZqeO8CYJPIdtmNqkE1v8Jhc+bTd9ZPbplLUA==",
-      "shasum": "a1a0b1604e345cb1fb6186b2d2eb3dd69f529917",
+      "integrity": "sha512-dDJmtPV9HerDidmf4Axp8IavVBE+k4lnAKKybK2O0C83Zfbews/hEZg8EYlKv6ijJzcqg9Ki1GpDCt00/EP9RA==",
+      "shasum": "309e319f36c5fb33d65613f9167536e724979288",
       "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.0.1.tgz",
       "peerDependencies": {
         "@ant-design/icons": "^6.3.2",
@@ -32,32 +32,32 @@
         },
         {
           "path": "README.md",
-          "size": 12566,
+          "size": 13367,
           "mode": 420
         },
         {
           "path": "dist/admin-web-shared.js",
-          "size": 46866,
+          "size": 54820,
           "mode": 420
         },
         {
           "path": "dist/api/errors.d.ts",
-          "size": 620,
+          "size": 695,
           "mode": 420
         },
         {
           "path": "dist/api/errors.d.ts.map",
-          "size": 680,
+          "size": 761,
           "mode": 420
         },
         {
           "path": "dist/api/httpClient.d.ts",
-          "size": 913,
+          "size": 1026,
           "mode": 420
         },
         {
           "path": "dist/api/httpClient.d.ts.map",
-          "size": 826,
+          "size": 924,
           "mode": 420
         },
         {
@@ -88,6 +88,26 @@
         {
           "path": "dist/components/AppErrorBoundary.d.ts.map",
           "size": 691,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/ListColumnSettings.d.ts",
+          "size": 1644,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/ListColumnSettings.d.ts.map",
+          "size": 1467,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/ListTemplateSettings.d.ts",
+          "size": 2968,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/ListTemplateSettings.d.ts.map",
+          "size": 3022,
           "mode": 420
         },
         {
@@ -202,12 +222,12 @@
         },
         {
           "path": "dist/index.d.ts",
-          "size": 2222,
+          "size": 2718,
           "mode": 420
         },
         {
           "path": "dist/index.d.ts.map",
-          "size": 1679,
+          "size": 2004,
           "mode": 420
         },
         {
