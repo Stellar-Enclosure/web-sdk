@@ -14,7 +14,11 @@ export interface HttpClientConfig {
 }
 
 export interface HttpClient {
-  request<T>(path: string, init?: RequestInit): Promise<T>
+  request<T>(path: string, init?: RequestInit, options?: HttpRequestOptions): Promise<T>
+}
+
+export interface HttpRequestOptions {
+  readonly allowEmptyResponse?: boolean
 }
 
 /** One request means one business dispatch. This client never refreshes or replays writes. */
@@ -25,7 +29,7 @@ export const createHttpClient = (config: HttpClientConfig): HttpClient => {
   if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 120_000) throw new TypeError('HTTP timeout is invalid')
   appendApiPath(baseUrl, '/')
 
-  const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
+  const request = async <T>(path: string, init: RequestInit = {}, options: HttpRequestOptions = {}): Promise<T> => {
     const url = appendApiPath(baseUrl, path)
     const capture = context.capture(init.signal ?? undefined)
     const controller = new AbortController()
@@ -55,7 +59,14 @@ export const createHttpClient = (config: HttpClientConfig): HttpClient => {
         onAuthError?.(401)
       } else if (response.status === 403) onAuthError?.(403)
       if (response.status === 204) return undefined as T
-      const payload: unknown = await response.json().catch(() => undefined)
+      let text: string | undefined
+      let payload: unknown
+      if (options.allowEmptyResponse) {
+        try { text = await response.text() } catch (error) { if (response.ok) throw error }
+        if (text !== undefined) {
+          try { payload = JSON.parse(text) } catch { payload = undefined }
+        }
+      } else payload = await response.json().catch(() => undefined)
       if (!response.ok) {
         const body = isRecord(payload) ? payload : {}
         const nested = isRecord(body.error) ? body.error : body
@@ -68,6 +79,7 @@ export const createHttpClient = (config: HttpClientConfig): HttpClient => {
       }
       capture.assertCurrent()
       signal.throwIfAborted()
+      if (payload === undefined && options.allowEmptyResponse && text?.trim() === '') return undefined as T
       if (payload === undefined) throw new ApiError('Response is not valid JSON', response.status, 'INVALID_RESPONSE', { retryable: false })
       return payload as T
     } finally { clearTimeout(timer) }

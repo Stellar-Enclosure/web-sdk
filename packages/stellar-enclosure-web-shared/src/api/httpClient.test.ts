@@ -34,6 +34,19 @@ describe('createHttpClient', () => {
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
+  it('accepts an explicitly expected empty 200 response without accepting invalid JSON or errors', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(new Response('', {status: 200}))
+      .mockResolvedValueOnce(new Response('', {status: 200}))
+      .mockResolvedValueOnce(new Response('invalid', {status: 200}))
+      .mockResolvedValueOnce(new Response('', {status: 403}))
+    const client = createHttpClient({baseUrl: '/apps/one', credentials: 'include', getCsrf: proof, fetch: fetcher})
+    await expect(client.request('/api/value/1', {method: 'DELETE'}, {allowEmptyResponse: true})).resolves.toBeUndefined()
+    await expect(client.request('/api/value/1', {method: 'DELETE'})).rejects.toMatchObject({code: 'INVALID_RESPONSE'})
+    await expect(client.request('/api/value/1', {method: 'DELETE'}, {allowEmptyResponse: true})).rejects.toMatchObject({code: 'INVALID_RESPONSE'})
+    await expect(client.request('/api/value/1', {method: 'DELETE'}, {allowEmptyResponse: true})).rejects.toMatchObject({status: 403})
+    expect(fetcher).toHaveBeenCalledTimes(4)
+  })
+
   it('retains only a valid opaque decision id from a denied response', async () => {
     const id = '12345678-1234-4234-8234-123456789abc'
     const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({code: 'AUTHORIZATION_DENIED'}),

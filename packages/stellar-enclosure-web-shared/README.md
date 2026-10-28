@@ -7,7 +7,7 @@ Tianquan-Jianshen）以及 `stellar-enclosure-platform-admin-portal` 微前端�
 
 - **Layout**：`EnterpriseLayout` / `EnterpriseHeader` / `EnterpriseFooter` 及完整 TypeScript 类型。平台通过 config 传入平台名、Logo、导航菜单、用户信息与全局操作区，Header 自动按当前路由高亮（最长前缀匹配），窄屏自动切换抽屉导航，Layout 保证最小高度与贴底 Footer。
 - **Theme**：`AdminThemeProvider`、`designTokens`、`injectTokens`。
-- **API**：`createHttpClient`、`ApiError`、`classifyApiError`。
+- **API**：`createHttpClient`、`ApiError`、`classifyApiError`。对于约定成功时返回空 HTTP 200 的接口，可调用 `client.request(path, init, {allowEmptyResponse: true})`；非法 JSON 和失败状态仍报错，默认仍要求 JSON 或 HTTP 204。
 - **Auth**：`createGatewayAuthClient`、`AuthRequestContext` 与 `GatewayAuthError`。固定 `appAlias` 对应 `/apps/{alias}/auth/*`；JS 只读取最小身份事实和短期 CSRF，不读取或保存 Access/Refresh。`identity()` 替代旧 Session 读取，`refresh(operationId)` 显式执行一次刷新，`refreshStatus(operationId)` 只读状态，不恢复凭据。`logout()` 关闭当前应用；`logout({sso:true})` 随后导航到 IdP SSO 退出。没有旧 `/bff` 探测或兼容回退。
 - **Permissions**：独立 `/permissions` 入口提供类型化静态声明、`ResourceKey<T>` 与不依赖 React 的 `evaluateRequirement`。AST 导出和固定合同制品准备见 [离线工具说明](../../scripts/permissions/README.md)。
 - **i18n**：`initI18n`、`I18nProvider`、`useT`、`changeLanguage`、`currentLanguage`，以及读取 Tianshu 已发布页面语言包的 `createPageI18nLoader`。

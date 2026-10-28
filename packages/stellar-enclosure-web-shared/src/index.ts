@@ -3,7 +3,7 @@ export { designTokens, injectTokens, type DesignTokens } from './theme/tokens'
 export { AdminThemeProvider } from './theme/ThemeProvider'
 
 // API
-export { createHttpClient, type HttpClient, type HttpClientConfig } from './api/httpClient'
+export { createHttpClient, type HttpClient, type HttpClientConfig, type HttpRequestOptions } from './api/httpClient'
 export { ApiError, classifyApiError, type ErrorClassification } from './api/errors'
 
 // Auth
