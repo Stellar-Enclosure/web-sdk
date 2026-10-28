@@ -747,5 +747,9 @@
       "buildAndTests": "PASS"
     }
   ],
-  "registryColdInstall": "PENDING_USER_PUBLICATION"
+  "registryColdInstall": "PASS",
+  "registryColdInstallConsumers": [
+    "tianshu-web",
+    "tianquan-jianshen-web"
+  ]
 }
