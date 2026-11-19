@@ -1,6 +1,6 @@
 {
   "name": "@stellar-enclosure/stellar-enclosure-web-shared",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "files": [
     "dist",

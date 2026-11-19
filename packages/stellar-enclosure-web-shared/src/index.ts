@@ -3,21 +3,20 @@ export { designTokens, injectTokens, type DesignTokens } from './theme/tokens'
 export { AdminThemeProvider } from './theme/ThemeProvider'
 
 // API
-export { createHttpClient, type HttpClient, type HttpClientConfig, type HttpRequestOptions } from './api/httpClient'
+export { createHttpClient, type HttpClient, type HttpClientConfig, type HttpRequestOptions, type ResourceRequestAuthority } from './api/httpClient'
 export { ApiError, classifyApiError, type ErrorClassification } from './api/errors'
 
 // Auth
 export {
-    createGatewayAuthClient,
-    GatewayAuthError,
-    type GatewayAuthClient,
-    type GatewayAuthErrorCode,
-    type GatewayAuthClientOptions,
-    type GatewayCsrfResult,
-    type GatewayLogoutRemoteState,
-    type GatewayLogoutResult,
-    type GatewayIdentityResult,
-    type GatewayRefreshResult,
+    createPublicOAuthClient,
+    relayPublicOAuthPopupCode,
+    PublicOAuthError,
+    type PublicOAuthClient,
+    type PublicOAuthClientOptions,
+    type PublicOAuthErrorCode,
+    type PublicOAuthIdentity,
+    type PublicOAuthLoginResult,
+    type PublicOAuthRegistration,
 } from './auth/gatewayAuthClient'
 export { AuthRequestContext, type AuthRequestSnapshot } from './auth/authRequestContext'
 

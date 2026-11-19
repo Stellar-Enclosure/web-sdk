@@ -4,8 +4,8 @@
   "nodeMajor": 24,
   "sdk": {
     "commit": null,
-    "sourceDigest": "92035ad0a1357db8fc08dde605202ca43d7e426c1022221223dfac7bdd289bf0",
-    "dependencyLockSha256": "d2c4c8f5c4dc82c71d116f26dd1e05969868fb1465f33f688654584737973598"
+    "sourceDigest": "4ce5cdf1009eba54de7bdb7ba33525f18ac095b14f6341fa9c976900481ca062",
+    "dependencyLockSha256": "75de64d12b43ed0043814baae420d5fa9036401d194154168eb553f72925d4b2"
   },
   "contract": {
     "coordinates": "top.egon:stellar-enclosure-tianquan-jianshen-contract:0.0.1",

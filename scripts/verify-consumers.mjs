@@ -56,7 +56,9 @@ for (const directory of ['stellar-enclosure-web-shared', 'stellar-enclosure-tian
     if (!existsSync(join(root, license))) cpSync(join(sdkRoot, license), join(root, license))
   }
   const pkg = json(join(root, 'package.json'))
-  if (!pkg.name.startsWith('@stellar-enclosure/') || pkg.version !== '0.0.1') throw new Error('Invalid SDK identity')
+  if (pkg.name !== '@stellar-enclosure/' + directory || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(pkg.version)) {
+    throw new Error('Invalid SDK package identity or version: ' + directory)
+  }
   const packed = JSON.parse(run(root, 'npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', output], true))[0]
   if (!packed.integrity || packed.name !== pkg.name || packed.version !== pkg.version) throw new Error('Invalid pack metadata')
   run(sdkRoot, 'npm', ['cache', 'add', join(output, packed.filename)])
@@ -97,7 +99,7 @@ for (const repo of requested ? [requested] : consumers) {
   for (const [name, version] of Object.entries(pkg.dependencies ?? {})) {
     if (!name.startsWith('@stellar-enclosure/')) continue
     const packed = packages.get(name)
-    if (!packed || version !== '0.0.1') throw new Error('Unprepared SDK: ' + name)
+    if (!packed || version !== packed.version) throw new Error('Unprepared SDK: ' + name + '@' + version)
     lock.packages['node_modules/' + name] = {
       version: packed.version, resolved: packed.resolved, integrity: packed.integrity,
       ...(packed.peerDependencies ? {peerDependencies: packed.peerDependencies} : {}),
@@ -117,7 +119,8 @@ for (const repo of requested ? [requested] : consumers) {
   results.push({repository: repo, offlineInstall: 'PASS', buildAndTests: phase === 'verify' ? 'PASS' : 'NOT_RUN'})
 }
 if (phase === 'verify') run(sdkRoot, 'npm', ['test'])
-const manifest = {version: '0.0.1', npmScope: '@stellar-enclosure', packages: [...packages.values()], consumers: results,
+const shared = packages.get('@stellar-enclosure/stellar-enclosure-web-shared')
+const manifest = {version: shared.version, npmScope: '@stellar-enclosure', packages: [...packages.values()], consumers: results,
   registryColdInstall: 'PENDING_USER_PUBLICATION'}
 mkdirSync(join(sdkRoot, 'release'), {recursive: true})
 if (phase === 'prepare') save(join(sdkRoot, 'release', 'npm-manifest.json'), manifest)

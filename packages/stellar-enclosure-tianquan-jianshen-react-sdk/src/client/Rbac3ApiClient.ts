@@ -11,11 +11,11 @@ import type {
 } from '../types'
 
 export interface Rbac3ApiClientOptions {
-  /** Pass shared createHttpClient with the fixed application base, CSRF and request context. */
+  /** Pass shared createHttpClient bound to the Jianshen Resource and its request context. */
   readonly transport: { request<T>(path: string, init?: RequestInit): Promise<T> }
 }
 
-/** Domain envelope adapter; shared browser transport owns Cookie, CSRF and cancellation. */
+/** Adapts the authorization envelope. The shared browser transport attaches the resource Bearer and manages cancellation. */
 export class Rbac3ApiClient implements Rbac3Client {
   constructor(private readonly options: Rbac3ApiClientOptions) {}
 

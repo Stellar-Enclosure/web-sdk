@@ -5,22 +5,25 @@
 ## 身份和权限接入
 
 ```tsx
-import { createGatewayAuthClient, createHttpClient } from '@stellar-enclosure/stellar-enclosure-web-shared'
+import { createHttpClient } from '@stellar-enclosure/stellar-enclosure-web-shared'
 import { snapshotContext } from '@stellar-enclosure/stellar-enclosure-web-shared/permissions'
 import { Rbac3ApiClient, Rbac3Provider } from '@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk'
 
-const auth = createGatewayAuthClient({ appAlias: 'edge-jianshen' })
-const api = createHttpClient({ baseUrl: auth.applicationBaseUrl, credentials: 'include', context: auth.context, getCsrf: auth.csrf })
+// Reuse the application client that completed the registered OAuth callback.
+import { auth } from './consoleAuth'
+const identity = auth.identity()
+if (!identity) throw new Error('Authorization is required')
+const authority = auth.authority()
+const api = createHttpClient({ baseUrl: authority.apiBaseUrl, authority })
 const client = new Rbac3ApiClient({ transport: api })
-const identity = await auth.identity()
-const captured = auth.context.capture()
+const captured = authority.context.capture()
 const snapshot = await client.getPermissionSnapshot(captured.signal)
 captured.assertCurrent()
 // Host must verify issuer/subject and the complete authorized catalogScope against its current bootstrap.
 verifyCurrentIdentityAndScope(identity, snapshot)
 const binding = snapshotContext(snapshot, captured.epoch)
 
-<Rbac3Provider client={client} binding={binding} requestContext={auth.context}
+<Rbac3Provider client={client} binding={binding} requestContext={authority.context}
   resources={resources} resourceReferences={fieldReferences} fieldCatalog={trustedBackendFields}
   onContextChange={updateHostPermissionAndTextContext}>
   <Console />

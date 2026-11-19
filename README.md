@@ -1,12 +1,12 @@
 # web-sdk
 
-Shared React UI, browser authentication and authorization SDKs for the Stellar Enclosure portal and five platform consoles. All first-party modules start at **0.0.1**.
+Shared React UI, browser authentication and authorization SDKs for the Stellar Enclosure portal and five platform consoles. The two public SDKs move to **0.1.0** for direct browser access.
 
 ## Packages and capabilities
 
 | Public package | Function | Source and usage |
 |---|---|---|
-| `@stellar-enclosure/stellar-enclosure-web-shared` | Theme tokens, enterprise header/footer/layout, page/loading/error components, typed HTTP/error handling, Edge application Cookie/CSRF, explicit refresh/status and logout client, i18n and shared hooks. Its `/vite-plugin` export supplies the favicon plugin. | [Package README](packages/stellar-enclosure-web-shared/README.md), [public exports](packages/stellar-enclosure-web-shared/src/index.ts) |
+| `@stellar-enclosure/stellar-enclosure-web-shared` | Theme tokens, enterprise header/footer/layout, page/loading/error components, typed HTTP/error handling, PUBLIC OAuth authorization code with PKCE, resource-bound Bearer Fetch, logout, i18n and shared hooks. Its `/vite-plugin` export supplies the favicon plugin. | [Package README](packages/stellar-enclosure-web-shared/README.md), [public exports](packages/stellar-enclosure-web-shared/src/index.ts) |
 | `@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk` | Typed RBAC3 client/provider/state machine; role candidates and activation; permission, action and field guards; frontend resource/component registries and default-route selection. | [Package README](packages/stellar-enclosure-tianquan-jianshen-react-sdk/README.md), [public exports](packages/stellar-enclosure-tianquan-jianshen-react-sdk/src/index.ts) |
 
 The shared package is consumed by `portal`, `tianshu-web`, `yuheng-web`, `yaoguang-web`, `tianquan-jianshen-web` and `tianquan-shoubing-web`; the Jianshen console also consumes the RBAC3 SDK. Shared UI renders navigation supplied by the application; Jianshen-specific authorization belongs to the RBAC3 SDK. Browser guards support UI behavior while server-side authorization remains authoritative.
@@ -15,7 +15,7 @@ The workspace owns SDK builds, tests, package checks and [consumer verification]
 
 ## Build and test
 
-Requires Node 24 and npm 11. After the SDKs are published:
+Use Node 24 and npm 11 for the local workspace.
 
 ```bash
 npm ci
@@ -38,7 +38,7 @@ PAC_TOOLCHAIN_LOCK="$PWD/permission-toolchain.local.lock.json" node scripts/veri
   --phase verify --online true
 ```
 
-The consumer verifier checks the initial SDK tarballs against the application locks. After changing a package's publishable contents before its first release, run it with `--phase prepare` to refresh those locks, then `--phase verify` to check all six consumers.
+The consumer verifier checks the actual SDK tarball versions and integrity against the application locks. After changing a package's publishable contents for a new release, run it with `--phase prepare` to refresh those locks, then `--phase verify` to check all six consumers.
 
 ## Permission declarations and offline Manifest tools
 
@@ -79,13 +79,13 @@ Do not repeat a published name/version. Update the applications' SDK versions an
 When releasing the exact tarballs already checked by the consumer verifier, use the files and integrity values in its output `npm-manifest.json`:
 
 ```bash
-npm publish dist/npm-release/stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz --access public --registry https://registry.npmjs.org/
-npm publish dist/npm-release/stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz --access public --registry https://registry.npmjs.org/
+npm publish dist/npm-release/stellar-enclosure-stellar-enclosure-web-shared-0.1.0.tgz --access public --registry https://registry.npmjs.org/
+npm publish dist/npm-release/stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.1.0.tgz --access public --registry https://registry.npmjs.org/
 ```
 
 ## Compatibility and publication
 
-The current SDK source replaces the old `/bff` Session transport and resource-key grant assumptions with application Cookie transport and version-bound permission snapshots. Consumers must adopt the documented client/Provider contracts; there is no automatic old/new API probing. Package source versions remain `0.0.1` in this workspace. Local builds, tarball installation and tests do not imply publication, application startup or live infrastructure acceptance.
+Apps use the configured tenant issuer for PUBLIC OAuth login and attach the corresponding short-lived Bearer to each resource request. Adopt the documented client and Provider contracts with both SDK versions pinned at `0.1.0`. Release, application rollout, and live acceptance each use separate gates.
 
 Git pushes run validation only. Central and npm publication are separate user actions. CI defaults to initial source bootstrap; after publication set `STELLAR_USE_SOURCE_BOOTSTRAP=false` to consume published artifacts directly. Private organizations may supply the Actions secret `STELLAR_ENCLOSURE_READ_TOKEN` with repository read access.
 

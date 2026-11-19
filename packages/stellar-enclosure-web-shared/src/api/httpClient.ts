@@ -1,91 +1,137 @@
 import { ApiError } from './errors'
-import { appendApiPath, AuthRequestContext } from '../auth/authRequestContext'
-import type { GatewayCsrfResult } from '../auth/gatewayAuthClient'
+import { appendApiPath, AuthRequestContext, normalizeApiBase } from '../auth/authRequestContext'
 
-export interface HttpClientConfig {
+export interface ResourceRequestAuthority {
+  readonly apiBaseUrl: string
+  readonly resource: string
+  readonly context: AuthRequestContext
+  authorizationHeader(): string
+  invalidate(): void
+}
+
+interface HttpClientOptions {
   readonly baseUrl: string
-  readonly credentials: RequestCredentials
-  readonly context?: AuthRequestContext
-  readonly getCsrf?: (signal?: AbortSignal) => Promise<GatewayCsrfResult>
-  /** 401 invalidates identity; 403 invalidates the affected permission view without logging out. */
+  /** 401 ends this authorization. 403 can invalidate the affected permission view. */
   readonly onAuthError?: (status: 401 | 403) => void
   readonly timeout?: number
   readonly fetch?: typeof globalThis.fetch
 }
 
+export type HttpClientConfig = HttpClientOptions & (
+  { readonly authority: ResourceRequestAuthority; readonly anonymous?: never } |
+  { readonly anonymous: true; readonly authority?: never }
+)
+
 export interface HttpClient {
   request<T>(path: string, init?: RequestInit, options?: HttpRequestOptions): Promise<T>
+  withEventStream<T>(path: string, consume: (response: Response, signal: AbortSignal) => Promise<T>, init?: RequestInit): Promise<T>
 }
 
 export interface HttpRequestOptions {
   readonly allowEmptyResponse?: boolean
 }
 
-/** One request means one business dispatch. This client never refreshes or replays writes. */
+/** A business request is dispatched once with the verified authorization for its API origin. */
 export const createHttpClient = (config: HttpClientConfig): HttpClient => {
-  const { baseUrl, credentials, onAuthError, timeout = 30_000 } = config
-  const context = config.context ?? new AuthRequestContext()
-  const fetcher = config.fetch ?? globalThis.fetch.bind(globalThis)
+  const { authority, onAuthError, timeout = 30_000 } = config
+  const baseUrl = normalizeApiBase(config.baseUrl)
+  if (!baseUrl.startsWith('https://')) throw new TypeError('API base must be an absolute HTTPS URL')
+  if ((!authority && config.anonymous !== true) || (authority && config.anonymous !== undefined)) {
+    throw new TypeError('Choose a resource authorization or explicitly allow anonymous requests')
+  }
+  if (authority && normalizeApiBase(authority.apiBaseUrl) !== baseUrl) {
+    throw new TypeError('API base does not match its resource authorization')
+  }
   if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 120_000) throw new TypeError('HTTP timeout is invalid')
-  appendApiPath(baseUrl, '/')
+  const context = authority?.context ?? new AuthRequestContext()
+  const fetcher = config.fetch ?? globalThis.fetch.bind(globalThis)
 
-  const request = async <T>(path: string, init: RequestInit = {}, options: HttpRequestOptions = {}): Promise<T> => {
+  const dispatch = async <T>(
+    path: string,
+    init: RequestInit,
+    accept: 'application/json' | 'text/event-stream',
+    consume: (response: Response, signal: AbortSignal) => Promise<T>,
+  ): Promise<T> => {
     const url = appendApiPath(baseUrl, path)
-    const capture = context.capture(init.signal ?? undefined)
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeout)
-    const signal = AbortSignal.any([capture.signal, controller.signal])
     const headers = new Headers(init.headers)
-    headers.set('Accept', 'application/json')
+    if (['Authorization', 'Cookie', 'Proxy-Authorization', 'X-CSRF-TOKEN'].some(name => headers.has(name))) {
+      throw new ApiError('Request credentials are managed by the resource client', 0, 'CREDENTIAL_OVERRIDE', { retryable: false })
+    }
+    const capture = context.capture(init.signal ?? undefined)
+    capture.assertCurrent()
+    if (authority) headers.set('Authorization', authority.authorizationHeader())
+    headers.set('Accept', accept)
     if (shouldSetJsonContentType(init.body) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+
+    const deadline = new AbortController()
+    const timer = setTimeout(() => deadline.abort(), timeout)
+    const signal = AbortSignal.any([capture.signal, deadline.signal])
     try {
-      if (credentials === 'include') {
-        if (headers.has('Authorization')) throw new ApiError('Browser credentials cannot include Authorization', 0, 'MIXED_CREDENTIALS', { retryable: false })
-        if (!['GET', 'HEAD', 'OPTIONS'].includes((init.method ?? 'GET').toUpperCase())) {
-          if (!config.getCsrf) throw new ApiError('A CSRF proof provider is required', 0, 'CSRF_REQUIRED', { retryable: false })
-          const csrf = await config.getCsrf(signal)
-          capture.assertCurrent()
-          if (csrf.headerName !== 'X-CSRF-TOKEN' || !csrf.token || Date.parse(csrf.expiresAt) <= Date.now()
-            || !Number.isFinite(Date.parse(csrf.expiresAt))) throw new ApiError('CSRF proof is invalid', 0, 'CSRF_INVALID', { retryable: false })
-          headers.set(csrf.headerName, csrf.token)
-        }
-      }
-      signal.throwIfAborted()
-      const response = await fetcher(url, { ...init, credentials, headers, signal, redirect: 'error', cache: 'no-store' })
+      const response = await fetcher(url, {
+        ...init, credentials: 'omit', headers, signal, redirect: 'error', cache: 'no-store', referrerPolicy: 'no-referrer',
+      })
       capture.assertCurrent()
       signal.throwIfAborted()
-      if (response.status === 401) {
-        context.invalidate()
-        onAuthError?.(401)
-      } else if (response.status === 403) onAuthError?.(403)
-      if (response.status === 204) return undefined as T
-      let text: string | undefined
-      let payload: unknown
-      if (options.allowEmptyResponse) {
-        try { text = await response.text() } catch (error) { if (response.ok) throw error }
-        if (text !== undefined) {
-          try { payload = JSON.parse(text) } catch { payload = undefined }
-        }
-      } else payload = await response.json().catch(() => undefined)
       if (!response.ok) {
-        const body = isRecord(payload) ? payload : {}
-        const nested = isRecord(body.error) ? body.error : body
-        const code = typeof nested.code === 'string' ? nested.code : typeof body.status === 'string' ? body.status : 'REQUEST_FAILED'
-        const traceId = body.traceId ?? (isRecord(body.meta) ? body.meta.traceId : undefined)
-        const decisionId = response.headers.get('X-Permission-Decision-Id')
-        throw new ApiError(typeof nested.message === 'string' ? nested.message : `Request failed (${response.status})`, response.status, code,
-          { requestId: typeof traceId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(traceId) ? traceId : undefined,
-            decisionId: decisionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(decisionId) ? decisionId : undefined })
+        const payload: unknown = await response.json().catch(() => undefined)
+        capture.assertCurrent()
+        signal.throwIfAborted()
+        if (response.status === 401) {
+          if (authority) authority.invalidate()
+          else context.invalidate()
+          onAuthError?.(401)
+        } else if (response.status === 403) {
+          onAuthError?.(403)
+        }
+        throw responseError(response, payload)
       }
+      if (accept === 'text/event-stream') {
+        const contentType = response.headers.get('Content-Type')?.split(';', 1)[0]?.trim().toLowerCase()
+        if (contentType !== accept) throw new ApiError('Response is not an event stream', response.status, 'INVALID_RESPONSE', { retryable: false })
+        clearTimeout(timer)
+      }
+      const value = await consume(response, signal)
       capture.assertCurrent()
       signal.throwIfAborted()
-      if (payload === undefined && options.allowEmptyResponse && text?.trim() === '') return undefined as T
-      if (payload === undefined) throw new ApiError('Response is not valid JSON', response.status, 'INVALID_RESPONSE', { retryable: false })
-      return payload as T
-    } finally { clearTimeout(timer) }
+      return value
+    } finally {
+      clearTimeout(timer)
+      deadline.abort()
+    }
   }
 
-  return { request }
+  const request = <T>(path: string, init: RequestInit = {}, options: HttpRequestOptions = {}): Promise<T> =>
+    dispatch(path, init, 'application/json', async response => {
+      if (response.status === 204) return undefined as T
+      const text = await response.text()
+      if (options.allowEmptyResponse && text.trim() === '') return undefined as T
+      try {
+        return JSON.parse(text) as T
+      } catch {
+        throw new ApiError('Response is not valid JSON', response.status, 'INVALID_RESPONSE', { retryable: false })
+      }
+    })
+
+  return {
+    request,
+    withEventStream: (path, consume, init = {}) => {
+      if (init.method && init.method.toUpperCase() !== 'GET' || init.body != null) {
+        throw new TypeError('An event subscription must use GET without a request body')
+      }
+      return dispatch(path, init, 'text/event-stream', consume)
+    },
+  }
+}
+
+const responseError = (response: Response, payload: unknown): ApiError => {
+  const body = isRecord(payload) ? payload : {}
+  const nested = isRecord(body.error) ? body.error : body
+  const code = typeof nested.code === 'string' ? nested.code : typeof body.status === 'string' ? body.status : 'REQUEST_FAILED'
+  const traceId = body.traceId ?? (isRecord(body.meta) ? body.meta.traceId : undefined)
+  const decisionId = response.headers.get('X-Permission-Decision-Id')
+  return new ApiError(typeof nested.message === 'string' ? nested.message : `Request failed (${response.status})`, response.status, code,
+    { requestId: typeof traceId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(traceId) ? traceId : undefined,
+      decisionId: decisionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(decisionId) ? decisionId : undefined })
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)

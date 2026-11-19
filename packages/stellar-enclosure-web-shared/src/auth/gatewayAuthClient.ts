@@ -1,220 +1,527 @@
-import { appendApiPath, AuthRequestContext, normalizeApiBase } from './authRequestContext'
+import { createHttpClient, type ResourceRequestAuthority } from '../api/httpClient'
+import { AuthRequestContext, normalizeApiBase } from './authRequestContext'
 
-export interface GatewayAuthClientOptions {
-    readonly baseUrl?: string
-    readonly appAlias?: string
-    readonly fetch?: typeof globalThis.fetch
-    readonly navigate?: (url: string) => void
-    readonly context?: AuthRequestContext
-    readonly timeout?: number
+export interface PublicOAuthRegistration {
+  readonly id: string
+  readonly tenantId: string
+  readonly issuer: string
+  readonly clientId: string
+  readonly resource: string
+  readonly apiBaseUrl: string
+  readonly scopes: readonly string[]
+  readonly authorizationEndpoint: string
+  readonly tokenEndpoint: string
+  readonly jwksUri: string
+  readonly redirectUri: string
+  readonly popupRedirectUri?: string
+  readonly browserBound: boolean
 }
 
-export interface GatewayIdentityResult {
-    readonly issuer: string
-    readonly tenantId: string
-    readonly subject: string
-    readonly appAlias: string
-    readonly clientId: string
-    readonly authorizationExpiresAt: number
-    readonly authenticationExpiresAt: number
-    readonly securityVersion: Readonly<{ realm: string; client: string; subject: string }>
-    readonly ssoLogoutUri: string
+export interface PublicOAuthClientOptions {
+  readonly registrations: readonly PublicOAuthRegistration[]
+  readonly activeResource: string
+  readonly fetch?: typeof globalThis.fetch
+  readonly sessionStorage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+  readonly navigate?: (url: string) => void
+  readonly replaceLocation?: (url: string) => void
+  readonly crypto?: Crypto
+  readonly timeout?: number
+  readonly browserWindow?: Pick<Window, 'open' | 'addEventListener' | 'removeEventListener'>
 }
 
-export interface GatewayCsrfResult {
-    readonly headerName: 'X-CSRF-TOKEN'
-    readonly token: string
-    readonly expiresAt: string
+export interface PublicOAuthIdentity {
+  readonly issuer: string
+  readonly tenantId: string
+  readonly subject: string
+  readonly clientId: string
+  readonly resource: string
+  readonly accessExpiresAt: number
 }
 
-export type GatewayLogoutRemoteState = 'CONFIRMED' | 'PENDING' | 'UNKNOWN'
-export interface GatewayLogoutResult {
-    readonly operationId: string
-    readonly status: 'LOCAL_CLOSED'
-    readonly remoteState: GatewayLogoutRemoteState
-    readonly ssoLogoutUri: string
+export interface PublicOAuthLoginResult {
+  readonly identity: PublicOAuthIdentity
+  readonly returnTo: string
 }
 
-export interface GatewayRefreshResult {
-    readonly operationId: string
-    readonly status: 'IN_PROGRESS' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN' | 'CLOSED'
-    readonly accessExpiresAt: number | null
-    readonly authorizationExpiresAt: number
-    readonly failureCode: string | null
+export type PublicOAuthErrorCode = 'INVALID_CONFIGURATION' | 'INVALID_CALLBACK' | 'AUTHORIZATION_REQUIRED' |
+  'AUTHORIZATION_REJECTED' | 'AUTHORITY_UNAVAILABLE' | 'INVALID_TOKEN' | 'POPUP_UNAVAILABLE'
+
+export class PublicOAuthError extends Error {
+  constructor(readonly code: PublicOAuthErrorCode) {
+    super(code)
+    this.name = 'PublicOAuthError'
+  }
 }
 
-export type GatewayAuthErrorCode = 'NETWORK_OR_TIMEOUT' | 'HTTP_ERROR' | 'CSRF_FAILED' | 'INVALID_RESPONSE' | 'INVALID_INPUT'
+export interface PublicOAuthClient {
+  selectResource(id: string): void
+  login(returnTo?: string, options?: { readonly reauthenticate?: boolean }): Promise<void>
+  completeRedirect(url?: string, signal?: AbortSignal): Promise<PublicOAuthLoginResult>
+  authorizeInPopup(id: string, signal?: AbortSignal): Promise<PublicOAuthIdentity>
+  identity(id?: string): PublicOAuthIdentity | undefined
+  authority(id?: string): ResourceRequestAuthority
+  bootstrap<T>(path: string, id?: string, signal?: AbortSignal): Promise<T>
+  logout(options?: { readonly sso?: boolean }): void
+}
 
-export class GatewayAuthError extends Error {
-    constructor(readonly code: GatewayAuthErrorCode, readonly path: string, message: string, readonly status?: number) {
-        super(message)
-        this.name = 'GatewayAuthError'
+interface AuthorizationTransaction {
+  readonly binding: string
+  readonly redirectUri: string
+  readonly state: string
+  readonly nonce: string
+  readonly verifier: string
+  readonly browserBinding?: string
+  readonly returnTo: string
+  readonly expiresAt: number
+}
+
+interface ResourceSession {
+  readonly registration: PublicOAuthRegistration
+  readonly context: AuthRequestContext
+  token?: { readonly value: string; readonly identity: PublicOAuthIdentity }
+  expiryTimer?: ReturnType<typeof setTimeout>
+}
+
+const TRANSACTION_PREFIX = 'stellar.public-oauth.v1.'
+const TRANSACTION_TTL = 5 * 60 * 1000
+const CODE_MESSAGE = 'stellar.public-oauth.code.v1'
+const RS256 = 'RSASSA-PKCS1-v1_5'
+const identifier = /^[A-Za-z0-9._:-]{1,128}$/
+const randomValue = /^[A-Za-z0-9_-]{43}$/
+const base64Value = /^[A-Za-z0-9_-]+$/
+const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
+const fail = (code: PublicOAuthErrorCode): never => { throw new PublicOAuthError(code) }
+
+/** The configured issuer, callbacks and API bindings are copied once. Only PKCE transactions survive a navigation. */
+export const createPublicOAuthClient = (options: PublicOAuthClientOptions): PublicOAuthClient => {
+  const sessions = configure(options.registrations)
+  const find = (id: string): ResourceSession => sessions.get(id) ?? fail('INVALID_CONFIGURATION')
+  let active = find(options.activeResource)
+  const storage = () => options.sessionStorage ?? window.sessionStorage
+  const fetcher = options.fetch ?? globalThis.fetch.bind(globalThis)
+  const navigate = options.navigate ?? ((url: string) => window.location.assign(url))
+  const replace = options.replaceLocation ?? ((url: string) => window.history.replaceState(null, '', url))
+  const crypto = options.crypto ?? globalThis.crypto
+  const timeout = options.timeout ?? 15_000
+  if (!crypto?.subtle || !Number.isFinite(timeout) || timeout <= 0 || timeout > 60_000) fail('INVALID_CONFIGURATION')
+
+  const clearToken = (session: ResourceSession) => {
+    clearTimeout(session.expiryTimer)
+    delete session.expiryTimer
+    delete session.token
+  }
+  const invalidate = (session: ResourceSession) => {
+    clearToken(session)
+    session.context.invalidate()
+  }
+  const clear = () => {
+    for (const session of sessions.values()) clearToken(session)
+    for (const session of sessions.values()) session.context.invalidate()
+    for (const id of sessions.keys()) storage().removeItem(TRANSACTION_PREFIX + id)
+  }
+  const current = (session: ResourceSession) => {
+    const token = session.token
+    if (token && token.identity.accessExpiresAt <= Date.now()) {
+      invalidate(session)
+      return undefined
     }
-}
+    return token
+  }
+  const allowed = (session: ResourceSession) => sameRealm(active.registration, session.registration)
+  const authority = (id = active.registration.id): ResourceRequestAuthority => {
+    const session = find(id)
+    return Object.freeze({
+      apiBaseUrl: session.registration.apiBaseUrl,
+      resource: session.registration.resource,
+      context: session.context,
+      authorizationHeader: () => {
+        const token = allowed(session) ? current(session) : undefined
+        if (!token) return fail('AUTHORIZATION_REQUIRED')
+        return 'Bearer ' + token.value
+      },
+      invalidate: () => invalidate(session),
+    })
+  }
 
-/** HttpOnly credential cookies belong to EDGE; only minimal identity and short-lived CSRF reach JS. */
-export interface GatewayAuthClient {
-    readonly context: AuthRequestContext
-    readonly applicationBaseUrl: string
-    login(returnTo?: string, options?: {readonly reauthenticate?: boolean}): void
-    identity(signal?: AbortSignal): Promise<GatewayIdentityResult>
-    csrf(signal?: AbortSignal): Promise<GatewayCsrfResult>
-    refresh(operationId: string, signal?: AbortSignal): Promise<GatewayRefreshResult>
-    refreshStatus(operationId: string, signal?: AbortSignal): Promise<GatewayRefreshResult>
-    logout(options?: { readonly sso?: boolean; readonly signal?: AbortSignal }): Promise<GatewayLogoutResult>
-    bootstrap<T>(path?: string, signal?: AbortSignal): Promise<T>
-}
-
-export const createGatewayAuthClient = (options: GatewayAuthClientOptions = {}): GatewayAuthClient => {
-    const origin = normalizeApiBase(options.baseUrl ?? '')
-    if (origin !== '' && new URL(origin).pathname !== '/') throw invalidInput('EDGE base must be an origin')
-    const alias = options.appAlias ?? 'edge-ui'
-    if (!/^[A-Za-z0-9_-]{1,128}$/.test(alias)) throw invalidInput('Application alias is invalid')
-    const applicationBaseUrl = origin + '/apps/' + alias
-    const fetcher = options.fetch ?? globalThis.fetch.bind(globalThis)
-    const navigate = options.navigate ?? ((url: string) => window.location.assign(url))
-    const context = options.context ?? new AuthRequestContext()
-    const timeout = options.timeout ?? 15_000
-    if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 60_000) throw invalidInput('Request timeout is invalid')
-
-    const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
-        const capture = context.capture(init.signal ?? undefined)
-        const timer = new AbortController()
-        const deadline = setTimeout(() => timer.abort(), timeout)
-        const headers = new Headers(init.headers)
-        headers.set('Accept', 'application/json')
-        headers.set('Cache-Control', 'no-store')
-        if (headers.has('Authorization')) throw invalidInput('Browser authentication does not accept Authorization headers')
-        try {
-            let response: Response
-            try {
-                response = await fetcher(appendApiPath(applicationBaseUrl, path), {
-                    ...init, credentials: 'include', cache: 'no-store', redirect: 'error', headers,
-                    signal: AbortSignal.any([capture.signal, timer.signal]),
-                })
-            } catch {
-                capture.assertCurrent()
-                throw new GatewayAuthError('NETWORK_OR_TIMEOUT', path, 'EDGE authentication service is unreachable')
-            }
-            capture.assertCurrent()
-            if (!response.ok) {
-                if (response.status === 401) context.invalidate()
-                throw new GatewayAuthError('HTTP_ERROR', path, `EDGE authentication request failed (${response.status})`, response.status)
-            }
-            let payload: unknown
-            try { payload = await response.json() as unknown }
-            catch { throw invalidResponse(path, response.status) }
-            capture.assertCurrent()
-            return payload as T
-        } finally { clearTimeout(deadline) }
-    }
-
-    const csrf = async (signal?: AbortSignal): Promise<GatewayCsrfResult> => {
-        const value = await request<unknown>('/auth/csrf', { signal })
-        if (!record(value) || value.headerName !== 'X-CSRF-TOKEN' || typeof value.token !== 'string'
-            || !/^[A-Za-z0-9._~-]{1,2048}$/.test(value.token) || typeof value.expiresAt !== 'string'
-            || !Number.isFinite(Date.parse(value.expiresAt)) || Date.parse(value.expiresAt) <= Date.now()) {
-            throw new GatewayAuthError('CSRF_FAILED', '/auth/csrf', 'EDGE security proof is invalid')
-        }
-        return { headerName: 'X-CSRF-TOKEN', token: value.token, expiresAt: value.expiresAt }
-    }
-
-    const refreshResult = (value: unknown, operationId: string): GatewayRefreshResult => {
-        if (!record(value) || value.operationId !== operationId
-            || !['IN_PROGRESS', 'SUCCEEDED', 'FAILED', 'UNKNOWN', 'CLOSED'].includes(String(value.status))
-            || !numericDate(value.authorizationExpiresAt) || !(value.accessExpiresAt === null || numericDate(value.accessExpiresAt))
-            || !(value.failureCode === null || (typeof value.failureCode === 'string' && /^[A-Z0-9_]{1,128}$/.test(value.failureCode)))) {
-            throw invalidResponse('/auth/refresh')
-        }
-        return { operationId, status: value.status as GatewayRefreshResult['status'], accessExpiresAt: value.accessExpiresAt,
-            authorizationExpiresAt: value.authorizationExpiresAt, failureCode: value.failureCode }
-    }
-
+  const createTransaction = (registration: PublicOAuthRegistration, redirectUri: string, returnTo: string): AuthorizationTransaction => {
+    const secret = () => encode(crypto.getRandomValues(new Uint8Array(32)))
     return {
-        context,
-        applicationBaseUrl,
-        login: (returnTo, loginOptions = {}) => {
-            if (returnTo !== undefined && (!/^\/[A-Za-z0-9/._~-]{0,2047}$/.test(returnTo) || returnTo.startsWith('//')
-                || returnTo.split('/').some(segment => segment === '.' || segment === '..'))) throw invalidInput('Return path is invalid')
-            if (!record(loginOptions) || Object.keys(loginOptions).some(key => key !== 'reauthenticate')
-                || (loginOptions.reauthenticate !== undefined && typeof loginOptions.reauthenticate !== 'boolean')) throw invalidInput('Login options are invalid')
-            const query = new URLSearchParams()
-            if (returnTo !== undefined) query.set('returnTo', returnTo)
-            if (loginOptions.reauthenticate === true) query.set('reauthenticate', 'true')
-            context.invalidate()
-            navigate(applicationBaseUrl + '/auth/login' + (query.size ? '?' + query.toString() : ''))
-        },
-        identity: async (signal) => {
-            const value = await request<unknown>('/auth/identity', { signal })
-            if (!record(value) || !text(value.issuer) || !text(value.tenantId) || !text(value.subject) || value.appAlias !== alias
-                || !text(value.clientId) || !numericDate(value.authorizationExpiresAt) || !numericDate(value.authenticationExpiresAt)
-                || !record(value.securityVersion) || !version(value.securityVersion.realm) || !version(value.securityVersion.client)
-                || !version(value.securityVersion.subject) || !logoutUri(value.ssoLogoutUri) || value.ssoLogoutUri !== value.issuer + '/logout') {
-                throw invalidResponse('/auth/identity')
-            }
-            const identity: GatewayIdentityResult = {
-                issuer: value.issuer, tenantId: value.tenantId, subject: value.subject, appAlias: alias, clientId: value.clientId,
-                authorizationExpiresAt: value.authorizationExpiresAt, authenticationExpiresAt: value.authenticationExpiresAt,
-                securityVersion: { realm: value.securityVersion.realm, client: value.securityVersion.client, subject: value.securityVersion.subject },
-                ssoLogoutUri: value.ssoLogoutUri,
-            }
-            context.acceptIdentity(JSON.stringify(identity))
-            return identity
-        },
-        csrf,
-        refresh: async (operationId, signal) => {
-            requireOperationId(operationId)
-            const capture = context.capture(signal)
-            const proof = await csrf(capture.signal)
-            capture.assertCurrent()
-            const value = await request<unknown>('/auth/refresh', { method: 'POST', signal: capture.signal,
-                headers: { 'Content-Type': 'application/json', [proof.headerName]: proof.token }, body: JSON.stringify({ operationId }) })
-            return refreshResult(value, operationId)
-        },
-        refreshStatus: async (operationId, signal) => {
-            requireOperationId(operationId)
-            return refreshResult(await request<unknown>('/auth/refresh-operations/' + operationId, { signal }), operationId)
-        },
-        logout: async (requestOptions = {}) => {
-            context.invalidate()
-            const capture = context.capture(requestOptions.signal)
-            const proof = await csrf(capture.signal)
-            capture.assertCurrent()
-            const value = await request<unknown>('/auth/logout', { method: 'POST', signal: capture.signal,
-                headers: { [proof.headerName]: proof.token } })
-            if (!record(value) || typeof value.operationId !== 'string' || !operationIdValid(value.operationId)
-                || value.status !== 'LOCAL_CLOSED' || !['CONFIRMED', 'PENDING', 'UNKNOWN'].includes(String(value.remoteState))
-                || !logoutUri(value.ssoLogoutUri)) throw invalidResponse('/auth/logout')
-            const result: GatewayLogoutResult = { operationId: value.operationId, status: 'LOCAL_CLOSED',
-                remoteState: value.remoteState as GatewayLogoutRemoteState, ssoLogoutUri: value.ssoLogoutUri }
-            if (requestOptions.sso === true) navigate(result.ssoLogoutUri)
-            return result
-        },
-        bootstrap: async <T>(path = '/api/v1/auth/bootstrap', signal?: AbortSignal): Promise<T> => {
-            if (!path.startsWith('/api/')) throw invalidInput('Bootstrap must use an application API path')
-            const value = await request<unknown>(path, { signal })
-            if (record(value) && 'success' in value && 'data' in value) {
-                if (value.success !== true || value.data === null) throw invalidResponse(path)
-                return value.data as T
-            }
-            return value as T
-        },
+      binding: binding(registration), redirectUri, returnTo: checkedReturnPath(returnTo),
+      state: secret(), nonce: secret(), verifier: secret(), expiresAt: Date.now() + TRANSACTION_TTL,
+      browserBinding: registration.browserBound
+        ? Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('')
+        : undefined,
     }
+  }
+
+  const authorizationUrl = async (registration: PublicOAuthRegistration, tx: AuthorizationTransaction, reauthenticate: boolean) => {
+    const challenge = encode(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tx.verifier))))
+    const url = new URL(registration.authorizationEndpoint)
+    url.search = new URLSearchParams({
+      response_type: 'code', client_id: registration.clientId, redirect_uri: tx.redirectUri, resource: registration.resource,
+      scope: registration.scopes.join(' '), state: tx.state, nonce: tx.nonce, code_challenge_method: 'S256', code_challenge: challenge,
+    }).toString()
+    if (tx.browserBinding) url.searchParams.set('browser_binding', tx.browserBinding)
+    if (reauthenticate) url.searchParams.set('prompt', 'login')
+    return url.href
+  }
+
+  const exchange = async (session: ResourceSession, tx: AuthorizationTransaction, code: string, signal?: AbortSignal): Promise<PublicOAuthLoginResult> => {
+    const { registration } = session
+    const capture = session.context.capture(signal)
+    const deadline = AbortSignal.timeout(timeout)
+    const exchangeSignal = AbortSignal.any([capture.signal, deadline])
+    const assertCurrent = () => {
+      capture.assertCurrent()
+      if (deadline.aborted) fail('AUTHORITY_UNAVAILABLE')
+    }
+    const request = async (url: string, body?: URLSearchParams) => {
+      try {
+        assertCurrent()
+        const response = await fetcher(url, {
+          method: body ? 'POST' : 'GET', body, redirect: 'error', credentials: 'omit', cache: 'no-store',
+          referrerPolicy: 'no-referrer', headers: { Accept: 'application/json' }, signal: exchangeSignal,
+        })
+        assertCurrent()
+        if (!response.ok) fail(response.status >= 500 ? 'AUTHORITY_UNAVAILABLE' : 'AUTHORIZATION_REJECTED')
+        const result = await boundedJson(response)
+        assertCurrent()
+        return result
+      } catch (error) {
+        assertCurrent()
+        if (error instanceof PublicOAuthError) throw error
+        return fail('AUTHORITY_UNAVAILABLE')
+      }
+    }
+    const body = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: tx.redirectUri,
+      client_id: registration.clientId, code_verifier: tx.verifier, resource: registration.resource })
+    if (tx.browserBinding) body.set('browser_binding', tx.browserBinding)
+    const { access, id, expiresIn } = tokenResponse(await request(registration.tokenEndpoint, body))
+    const jwks = await request(registration.jwksUri)
+    const keys = new Map<string, CryptoKey>()
+    const [identityClaims, accessClaims] = await Promise.all([
+      verifiedClaims(id, 'JWT', registration.clientId, registration.issuer, jwks, keys, crypto),
+      verifiedClaims(access, 'at+jwt', registration.resource, registration.issuer, jwks, keys, crypto),
+    ])
+    if (identityClaims.nonce !== tx.nonce || (identityClaims.azp !== undefined && identityClaims.azp !== registration.clientId)
+      || accessClaims.sub !== identityClaims.sub || accessClaims.principal_type !== 'USER' || accessClaims.scope_context !== 'TENANT'
+      || accessClaims.tenant_id !== registration.tenantId || accessClaims.client_id !== registration.clientId
+      || !equalScopes(accessClaims.scope, registration.scopes)) {
+      fail('INVALID_TOKEN')
+    }
+    if (identityClaims.at_hash !== undefined) {
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(access)))
+      if (identityClaims.at_hash !== encode(digest.subarray(0, 16))) fail('INVALID_TOKEN')
+    }
+    assertCurrent()
+    if (!allowed(session)) fail('AUTHORIZATION_REQUIRED')
+    const now = Date.now()
+    if (now >= tx.expiresAt) fail('INVALID_CALLBACK')
+    if (accessClaims.exp * 1000 - now > 600_000 || accessClaims.exp - accessClaims.iat > 600) fail('INVALID_TOKEN')
+    const accessExpiresAt = Math.min(accessClaims.exp * 1000, identityClaims.exp * 1000, now + expiresIn * 1000)
+    if (accessExpiresAt <= now) fail('INVALID_TOKEN')
+    if ([...sessions.values()].some(other => other !== session && allowed(other)
+      && other.token && other.token.identity.accessExpiresAt > now && other.token.identity.subject !== identityClaims.sub)) {
+      fail('INVALID_TOKEN')
+    }
+    const identity = Object.freeze({ issuer: registration.issuer, tenantId: registration.tenantId,
+      subject: identityClaims.sub, clientId: registration.clientId, resource: registration.resource, accessExpiresAt })
+    invalidate(session)
+    session.token = { identity, value: access }
+    session.expiryTimer = setTimeout(() => invalidate(session), accessExpiresAt - now)
+    return { identity, returnTo: tx.returnTo }
+  }
+
+  return {
+    selectResource: id => {
+      const session = find(id)
+      if (!allowed(session)) clear()
+      active = session
+    },
+    login: async (returnTo = '/', login = {}) => {
+      const session = active
+      const registration = session.registration
+      const tx = createTransaction(registration, registration.redirectUri, returnTo)
+      invalidate(session)
+      const capture = session.context.capture()
+      const url = await authorizationUrl(registration, tx, login.reauthenticate === true)
+      capture.assertCurrent()
+      if (active !== session) fail('AUTHORIZATION_REQUIRED')
+      const key = TRANSACTION_PREFIX + registration.id
+      storage().setItem(key, JSON.stringify(tx))
+      try { navigate(url) } catch (error) { storage().removeItem(key); throw error }
+    },
+    completeRedirect: async (url = window.location.href, signal) => {
+      const parsed = callbackUrl(url)
+      const callback = parsed.origin + parsed.pathname
+      const matches = [...sessions.values()].filter(session => session.registration.redirectUri === callback)
+      if (matches.length === 0) return fail('INVALID_CALLBACK')
+      replace(callback)
+      const { state, code, issuer, rejected } = parseCallback(parsed)
+      for (const session of matches) {
+        const key = TRANSACTION_PREFIX + session.registration.id
+        const tx = readTransaction(storage().getItem(key), session.registration, state, () => storage().removeItem(key))
+        if (!tx) continue
+        if (issuer !== undefined && issuer !== session.registration.issuer) return fail('INVALID_CALLBACK')
+        if (rejected) return fail('AUTHORIZATION_REJECTED')
+        if (!allowed(session)) clear()
+        active = session
+        invalidate(session)
+        return exchange(session, tx, code, signal)
+      }
+      return fail('INVALID_CALLBACK')
+    },
+    authorizeInPopup: async (id, signal) => {
+      const session = find(id)
+      const registration = session.registration
+      const redirectUri = registration.popupRedirectUri
+      if (!redirectUri || !allowed(session)) return fail('POPUP_UNAVAILABLE')
+      const browser = options.browserWindow ?? window
+      const popup = browser.open('about:blank', '_blank', 'popup,width=560,height=680')
+      if (!popup) return fail('POPUP_UNAVAILABLE')
+      invalidate(session)
+      const capture = session.context.capture(signal)
+      try {
+        const tx = createTransaction(registration, redirectUri, '/')
+        const url = await authorizationUrl(registration, tx, false)
+        capture.assertCurrent()
+        const code = await receivePopupCode(browser, popup, url, registration.issuer, tx, capture.signal)
+        return (await exchange(session, tx, code, capture.signal)).identity
+      } finally { popup.close() }
+    },
+    identity: (id = active.registration.id) => {
+      const session = find(id)
+      return allowed(session) ? current(session)?.identity : undefined
+    },
+    authority,
+    bootstrap: async <T>(path: string, id?: string, signal?: AbortSignal) => {
+      const selected = authority(id)
+      const client = createHttpClient({ authority: selected, baseUrl: selected.apiBaseUrl, fetch: fetcher, timeout })
+      if (!path.startsWith('/api/')) return fail('INVALID_CONFIGURATION')
+      const response = await client.request<unknown>(path, { signal })
+      if (!isObject(response)) return fail('AUTHORITY_UNAVAILABLE')
+      if (!('success' in response)) return response as T
+      if (response.success !== true || response.data == null) return fail('AUTHORITY_UNAVAILABLE')
+      return response.data as T
+    },
+    logout: (logout = {}) => {
+      const issuer = active.registration.issuer
+      clear()
+      if (logout.sso === true) navigate(issuer + '/logout')
+    },
+  }
 }
 
-const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
-const text = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 2048
-const version = (value: unknown): value is string => typeof value === 'string' && /^(?:0|[1-9][0-9]{0,18})$/.test(value)
-const numericDate = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0
-const operationIdValid = (value: string): boolean => /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value)
-const requireOperationId = (value: string): void => { if (!operationIdValid(value)) throw invalidInput('Operation id is invalid') }
-const invalidInput = (message: string) => new GatewayAuthError('INVALID_INPUT', '/auth', message)
-const invalidResponse = (path: string, status?: number) => new GatewayAuthError('INVALID_RESPONSE', path, 'EDGE authentication response is invalid', status)
-const logoutUri = (value: unknown): value is string => {
-    if (typeof value !== 'string') return false
-    try {
-        const uri = new URL(value)
-        return uri.protocol === 'https:' && !uri.username && !uri.password && !uri.search && !uri.hash
-            && /^\/(?:platform|tenants\/[1-9][0-9]{0,18})\/logout$/.test(uri.pathname) && uri.href === value
-    } catch { return false }
+/** Used by the app's exact popup callback page. Only the one-use code and its correlation values cross windows. */
+export const relayPublicOAuthPopupCode = (redirectUri: string, browser: Window = window): void => {
+  const parsed = callbackUrl(browser.location.href)
+  const callback = parsed.origin + parsed.pathname
+  if (callback !== redirectUri || parsed.origin !== browser.location.origin || !browser.opener) fail('INVALID_CALLBACK')
+  browser.history.replaceState(null, '', callback)
+  const { state, code, issuer, rejected } = parseCallback(parsed)
+  browser.opener.postMessage({ type: CODE_MESSAGE, state, code, issuer, rejected }, parsed.origin)
+}
+
+const sameRealm = (left: PublicOAuthRegistration, right: PublicOAuthRegistration) => left.issuer === right.issuer && left.tenantId === right.tenantId
+const binding = (registration: PublicOAuthRegistration) => JSON.stringify(registration)
+const encode = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+const decode = (value: string) => Uint8Array.from(atob(value.replaceAll('-', '+').replaceAll('_', '/')), char => char.charCodeAt(0))
+
+function parseUrl(text: string): URL | undefined {
+  try { return new URL(text) } catch { return undefined }
+}
+
+function secureUrl(text: string): URL {
+  const url = parseUrl(text)
+  if (!url || url.protocol !== 'https:' || url.username || url.password || url.search || url.hash
+    || (url.href !== text && url.origin !== text) || text.length > 2048) return fail('INVALID_CONFIGURATION')
+  return url
+}
+
+function configure(registrations: readonly PublicOAuthRegistration[]): Map<string, ResourceSession> {
+  if (registrations.length < 1 || registrations.length > 32) fail('INVALID_CONFIGURATION')
+  const sessions = new Map<string, ResourceSession>()
+  const callbackBindings = new Map<string, string>()
+  for (const input of registrations) {
+    const { id, tenantId, issuer, clientId, resource, authorizationEndpoint, tokenEndpoint, jwksUri, redirectUri, popupRedirectUri, browserBound } = input
+    if (!identifier.test(id) || sessions.has(id) || !/^[1-9][0-9]{0,18}$/.test(tenantId) || !identifier.test(clientId)
+      || typeof browserBound !== 'boolean' || issuer.endsWith('/')) fail('INVALID_CONFIGURATION')
+    const issuerUrl = secureUrl(issuer)
+    for (const endpoint of [authorizationEndpoint, tokenEndpoint, jwksUri]) {
+      const parsed = secureUrl(endpoint)
+      if (parsed.origin !== issuerUrl.origin || !endpoint.startsWith(issuer + '/')) fail('INVALID_CONFIGURATION')
+    }
+    if (new Set([authorizationEndpoint, tokenEndpoint, jwksUri]).size !== 3) fail('INVALID_CONFIGURATION')
+    secureUrl(resource)
+    secureUrl(input.apiBaseUrl)
+    const apiBaseUrl = normalizeApiBase(input.apiBaseUrl)
+    const origin = secureUrl(redirectUri).origin
+    if (popupRedirectUri && (secureUrl(popupRedirectUri).origin !== origin || popupRedirectUri === redirectUri)) fail('INVALID_CONFIGURATION')
+    for (const [uri, mode] of [[redirectUri, 'navigation'], [popupRedirectUri, 'popup']] as const) {
+      if (!uri) continue
+      if (secureUrl(uri).href !== uri) fail('INVALID_CONFIGURATION')
+      const owner = issuer + ' ' + mode
+      if (callbackBindings.has(uri) && callbackBindings.get(uri) !== owner) fail('INVALID_CONFIGURATION')
+      callbackBindings.set(uri, owner)
+    }
+    const scopes = Object.freeze([...input.scopes].sort())
+    if (!scopes.includes('openid') || scopes.length > 64 || scopes.some(value => !identifier.test(value)) || new Set(scopes).size !== scopes.length) fail('INVALID_CONFIGURATION')
+    const registration = Object.freeze({ id, tenantId, issuer, clientId, resource, apiBaseUrl, scopes, authorizationEndpoint, tokenEndpoint,
+      jwksUri, redirectUri, popupRedirectUri, browserBound })
+    sessions.set(id, { registration, context: new AuthRequestContext() })
+  }
+  return sessions
+}
+
+function checkedReturnPath(value: string): string {
+  if (!/^\/[A-Za-z0-9/._~-]{0,2047}$/.test(value) || value.startsWith('//')
+    || value.split('/').some(segment => segment === '.' || segment === '..')) return fail('INVALID_CONFIGURATION')
+  return value
+}
+
+function readTransaction(raw: string | null, registration: PublicOAuthRegistration, state: string,
+  remove: () => void): AuthorizationTransaction | undefined {
+  if (!raw) return undefined
+  let parsed: unknown
+  if (raw.length <= 32_768) {
+    try { parsed = JSON.parse(raw) } catch { /* Remove malformed transaction below. */ }
+  }
+  if (!isObject(parsed) || typeof parsed.expiresAt !== 'number' || parsed.expiresAt <= Date.now()) {
+    remove()
+    return undefined
+  }
+  if (parsed.state !== state) return undefined
+  remove()
+  if (parsed.binding !== binding(registration) || parsed.redirectUri !== registration.redirectUri
+    || typeof parsed.nonce !== 'string' || !randomValue.test(parsed.nonce) || typeof parsed.verifier !== 'string' || !randomValue.test(parsed.verifier)
+    || !Number.isSafeInteger(parsed.expiresAt) || parsed.expiresAt - Date.now() > TRANSACTION_TTL || typeof parsed.returnTo !== 'string'
+    || (registration.browserBound ? typeof parsed.browserBinding !== 'string' || !/^[0-9a-f]{64}$/.test(parsed.browserBinding) : parsed.browserBinding !== undefined)) return undefined
+  try { checkedReturnPath(parsed.returnTo) } catch { return undefined }
+  return parsed as unknown as AuthorizationTransaction
+}
+
+function callbackUrl(text: string): URL {
+  const url = parseUrl(text)
+  if (!url || text.length > 16_384 || url.protocol !== 'https:' || url.username || url.password || url.hash || url.href !== text) return fail('INVALID_CALLBACK')
+  return url
+}
+
+function parseCallback(url: URL) {
+  const params = url.searchParams
+  const state = params.get('state')
+  const code = params.get('code')
+  const rejected = params.has('error')
+  const names = ['code', 'state', 'iss', 'error', 'error_description', 'error_uri']
+  if (!state || !randomValue.test(state) || [...params.keys()].some(key => !names.includes(key) || params.getAll(key).length !== 1)
+    || (rejected ? params.has('code') : !isCode(code))) return fail('INVALID_CALLBACK')
+  return { state, code: code ?? '', issuer: params.get('iss') ?? undefined, rejected }
+}
+
+function isCode(code: unknown): code is string {
+  // Spring Authorization Server emits base64url authorization codes.
+  return typeof code === 'string' && code.length > 0 && code.length <= 4096 && /^[A-Za-z0-9._~+/=-]+$/.test(code)
+}
+
+async function receivePopupCode(browser: NonNullable<PublicOAuthClientOptions['browserWindow']>, popup: Window,
+  url: string, issuer: string, tx: AuthorizationTransaction, signal: AbortSignal): Promise<string> {
+  signal.throwIfAborted()
+  const origin = new URL(tx.redirectUri).origin
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      window.clearInterval(poll)
+      browser.removeEventListener('message', receive)
+      signal.removeEventListener('abort', abort)
+    }
+    const abort = () => { finish(); reject(signal.reason) }
+    const receive = (event: MessageEvent<unknown>) => {
+      if (event.source !== popup || event.origin !== origin || !isObject(event.data)
+        || event.data.type !== CODE_MESSAGE || event.data.state !== tx.state) return
+      finish()
+      if (event.data.issuer !== undefined && event.data.issuer !== issuer || Date.now() >= tx.expiresAt) reject(new PublicOAuthError('INVALID_CALLBACK'))
+      else if (event.data.rejected === true) reject(new PublicOAuthError('AUTHORIZATION_REJECTED'))
+      else if (event.data.rejected === false && isCode(event.data.code)) resolve(event.data.code)
+      else reject(new PublicOAuthError('INVALID_CALLBACK'))
+    }
+    const poll = window.setInterval(() => {
+      if (!popup.closed && Date.now() < tx.expiresAt) return
+      finish()
+      reject(new PublicOAuthError('POPUP_UNAVAILABLE'))
+    }, 250)
+    browser.addEventListener('message', receive)
+    signal.addEventListener('abort', abort, { once: true })
+    try { popup.location.replace(url) } catch { finish(); reject(new PublicOAuthError('POPUP_UNAVAILABLE')) }
+  })
+}
+
+async function boundedJson(response: Response): Promise<unknown> {
+  const reader = response.body?.getReader()
+  if (!reader) return fail('INVALID_TOKEN')
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  let size = 0
+  let text = ''
+  try {
+    for (;;) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      size += chunk.value.byteLength
+      if (size > 128 * 1024) fail('INVALID_TOKEN')
+      text += decoder.decode(chunk.value, { stream: true })
+    }
+    return JSON.parse(text + decoder.decode()) as unknown
+  } catch {
+    void reader.cancel().catch(() => undefined)
+    return fail('INVALID_TOKEN')
+  } finally { reader.releaseLock() }
+}
+
+function tokenResponse(body: unknown): { access: string; id: string; expiresIn: number } {
+  if (!isObject(body) || 'refresh_token' in body || typeof body.token_type !== 'string' || body.token_type.toLowerCase() !== 'bearer'
+    || typeof body.expires_in !== 'number' || !Number.isSafeInteger(body.expires_in) || body.expires_in < 1 || body.expires_in > 600
+    || typeof body.access_token !== 'string' || typeof body.id_token !== 'string') return fail('INVALID_TOKEN')
+  return { access: body.access_token, id: body.id_token, expiresIn: body.expires_in }
+}
+
+interface VerifiedClaims extends Record<string, unknown> { readonly sub: string; readonly exp: number; readonly iat: number }
+
+async function verifiedClaims(jwt: string, type: string, audience: string, issuer: string, jwks: unknown,
+  keyCache: Map<string, CryptoKey>, crypto: Crypto): Promise<VerifiedClaims> {
+  try {
+    const parts = jwt.split('.')
+    if (jwt.length > 24_576 || parts.length !== 3 || parts.some(part => !base64Value.test(part))) return fail('INVALID_TOKEN')
+    const [head, payload, signature] = parts
+    const json = (part: string): unknown => JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(decode(part)))
+    const header = json(head)
+    if (!isObject(header) || header.alg !== 'RS256' || header.typ !== type || typeof header.kid !== 'string' || !identifier.test(header.kid)
+      || ['crit', 'jku', 'jwk', 'x5u', 'x5c', 'b64'].some(name => name in header)) return fail('INVALID_TOKEN')
+    const key = keyCache.get(header.kid) ?? await importKey(jwks, header.kid, crypto)
+    keyCache.set(header.kid, key)
+    if (!await crypto.subtle.verify(RS256, key, decode(signature), new TextEncoder().encode(head + '.' + payload))) return fail('INVALID_TOKEN')
+    const c = json(payload)
+    const now = Math.floor(Date.now() / 1000)
+    if (!isObject(c) || c.iss !== issuer || (c.aud !== audience && !(Array.isArray(c.aud) && c.aud.length === 1 && c.aud[0] === audience))
+      || typeof c.sub !== 'string' || !c.sub || c.sub.length > 255 || [...c.sub].some(char => char.charCodeAt(0) <= 0x20 || char.charCodeAt(0) === 0x7f)
+      || typeof c.exp !== 'number' || !Number.isSafeInteger(c.exp) || c.exp <= now
+      || typeof c.iat !== 'number' || !Number.isSafeInteger(c.iat) || c.iat < 1 || c.iat > now + 30 || c.exp <= c.iat
+      || (c.nbf !== undefined && (typeof c.nbf !== 'number' || !Number.isSafeInteger(c.nbf) || c.nbf > now))) return fail('INVALID_TOKEN')
+    return c as VerifiedClaims
+  } catch { return fail('INVALID_TOKEN') }
+}
+
+async function importKey(jwks: unknown, kid: string, crypto: Crypto): Promise<CryptoKey> {
+  if (!isObject(jwks) || !Array.isArray(jwks.keys) || jwks.keys.length > 64) return fail('INVALID_TOKEN')
+  const matches = jwks.keys.filter((key: unknown) => isObject(key) && key.kid === kid)
+  const jwk: unknown = matches[0]
+  if (matches.length !== 1 || !isObject(jwk) || jwk.kty !== 'RSA' || (jwk.use !== undefined && jwk.use !== 'sig')
+    || (jwk.alg !== undefined && jwk.alg !== 'RS256') || 'd' in jwk
+    || typeof jwk.n !== 'string' || !base64Value.test(jwk.n) || jwk.n.length < 342 || jwk.n.length > 683
+    || typeof jwk.e !== 'string' || !base64Value.test(jwk.e) || jwk.e.length > 8) return fail('INVALID_TOKEN')
+  const key = await crypto.subtle.importKey('jwk', { kty: 'RSA', n: jwk.n, e: jwk.e }, { name: RS256, hash: 'SHA-256' }, false, ['verify'])
+  if ((key.algorithm as RsaHashedKeyAlgorithm).modulusLength < 2048) return fail('INVALID_TOKEN')
+  return key
+}
+
+function equalScopes(value: unknown, expected: readonly string[]): boolean {
+  if (typeof value !== 'string' || value.length > 8320) return false
+  const scopes = value.split(' ').sort()
+  return scopes.length === expected.length && expected.every((scope, index) => scopes[index] === scope)
 }

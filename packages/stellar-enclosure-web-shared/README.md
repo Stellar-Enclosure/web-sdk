@@ -8,7 +8,7 @@ Tianquan-Jianshen）以及 `stellar-enclosure-platform-admin-portal` 微前端�
 - **Layout**：`EnterpriseLayout` / `EnterpriseHeader` / `EnterpriseFooter` 及完整 TypeScript 类型。平台通过 config 传入平台名、Logo、导航菜单、用户信息与全局操作区，Header 自动按当前路由高亮（最长前缀匹配），窄屏自动切换抽屉导航，Layout 保证最小高度与贴底 Footer。
 - **Theme**：`AdminThemeProvider`、`designTokens`、`injectTokens`。
 - **API**：`createHttpClient`、`ApiError`、`classifyApiError`。对于约定成功时返回空 HTTP 200 的接口，可调用 `client.request(path, init, {allowEmptyResponse: true})`；非法 JSON 和失败状态仍报错，默认仍要求 JSON 或 HTTP 204。
-- **Auth**：`createGatewayAuthClient`、`AuthRequestContext` 与 `GatewayAuthError`。固定 `appAlias` 对应 `/apps/{alias}/auth/*`；JS 只读取最小身份事实和短期 CSRF，不读取或保存 Access/Refresh。`identity()` 替代旧 Session 读取，`refresh(operationId)` 显式执行一次刷新，`refreshStatus(operationId)` 只读状态，不恢复凭据。`logout()` 关闭当前应用；`logout({sso:true})` 随后导航到 IdP SSO 退出。没有旧 `/bff` 探测或兼容回退。
+- **Auth** 使用 `createPublicOAuthClient`、`AuthRequestContext` 与 `PublicOAuthError`。每个 Resource 绑定租户 issuer、PUBLIC client、精确回调与 API 地址。授权码通过 S256 PKCE 交换，业务令牌留在当前页面内存。
 - **Permissions**：独立 `/permissions` 入口提供类型化静态声明、`ResourceKey<T>` 与不依赖 React 的 `evaluateRequirement`。AST 导出和固定合同制品准备见 [离线工具说明](../../scripts/permissions/README.md)。
 - **i18n**：`initI18n`、`I18nProvider`、`useT`、`changeLanguage`、`currentLanguage`，以及读取 Tianshu 已发布页面语言包的 `createPageI18nLoader`。
 - **Components / Hooks**：`PageHeader`、`PageState`、`PageTemplate`、`ListTemplateSettings`、`ListColumnSettings`、`ListColumnSelector`、
@@ -31,33 +31,26 @@ const config: EnterpriseLayoutConfig = {
 }
 ```
 
-## 无 Session 身份和业务请求
+## PUBLIC OAuth 登录与直连请求
+
+从受控部署配置读取 `PublicOAuthRegistration`。配置包含准确的 HTTPS issuer、authorization endpoint、token endpoint、JWKS 地址、redirect URI、Resource、API base 和 scopes。启用授柄 `browser_binding` 的注册须设置 `browserBound: true`。
 
 ```ts
-import { createGatewayAuthClient, createHttpClient } from '@stellar-enclosure/stellar-enclosure-web-shared'
+import { createPublicOAuthClient, createHttpClient, type PublicOAuthRegistration } from '@stellar-enclosure/stellar-enclosure-web-shared'
 
-const auth = createGatewayAuthClient({ appAlias: 'edge-jianshen' })
-const api = createHttpClient({
-  baseUrl: auth.applicationBaseUrl,
-  credentials: 'include',
-  context: auth.context,
-  getCsrf: auth.csrf,
-  onAuthError: (status) => {
-    // 401 清本地身份和权限 UI；403 只使当前权限视图失效；不自动刷新或重放业务写操作。
-    invalidatePermissionView(status)
-  },
-})
-const identity = await auth.identity()
-const data = await api.request('/api/tianquan-jianshen/v1/auth/role-activations')
+export function createConsoleAuth(registered: PublicOAuthRegistration) {
+  const auth = createPublicOAuthClient({ registrations: [registered], activeResource: registered.id })
+  const authority = auth.authority()
+  const api = createHttpClient({ baseUrl: authority.apiBaseUrl, authority })
+  return { auth, authority, api }
+}
 ```
 
-`baseUrl` 为 EDGE origin（可省略以使用同源），`appAlias` 是部署固定应用名，不接收页面传入的 issuer/client/resource。业务请求保留 `/apps/{alias}` 前缀；不要用 `new URL('/api/...', applicationBaseUrl)`，它会丢弃应用路径。写请求必须使用 `getCsrf`；Cookie 与 Authorization 混用在发出请求前拒绝。
+登录按钮调用 `auth.login('/dashboard')`。精确登记的回调页调用 `auth.completeRedirect()`，随后用返回的 `identity` 和 `returnTo` 更新应用并导航。SDK 从地址栏移除 code/state，校验授权事务、ID token 与 Resource access token。页面刷新后按需重新授权。退出时调用 `auth.logout()` 清理本地身份，调用 `auth.logout({ sso: true })` 同时进入授柄的 SSO 退出确认页。
 
-`AuthRequestContext` 只拥有本地请求取消代次。身份事实/版本变化、登录或退出开始会取消旧代次，迟到的响应和 JSON body 不再应用；它不是服务器 Session。授权状态发生 401 时清本地上下文，403 交由权限视图处理，503 保持不可用状态，不自动刷新。请求 deadline 与调用方 AbortSignal 同时生效。
+其他资源使用各自的登记配置。用户动作可调用 `auth.authorizeInPopup(resourceId)`；该资源登记的弹窗回调页调用 `relayPublicOAuthPopupCode(popupRedirectUri)`。弹窗被拦截时，由应用提供 `auth.selectResource(resourceId)` 加 `auth.login()` 的顶层导航入口。仅在同一租户发行者下保留多个资源授权。
 
-刷新由用户动作或应用明确编排：先创建 `crypto.randomUUID()` 并调用 `auth.refresh(operationId)`。若网络响应丢失，保留相同 operationId，随后显式调用 `auth.refreshStatus(operationId)`；状态查询没有新 Cookie/Token。`UNKNOWN/CLOSED/FAILED` 要求重新认证，SDK 不自动重新提交旧 Refresh，也不会自动重试 POST/PUT/PATCH/DELETE。账号切换必须先完成 IdP SSO 退出以关闭旧认证上下文，再建立新身份；应用请求取消不能替代服务端撤销。
-
-RBAC SDK 使用同一实例：`new Rbac3ApiClient({transport: api})`。六个前端的接入和浏览器验收在后续阶段完成，SDK 单测/打包不代表应用已经切换。
+`createHttpClient` 用固定 `authority.apiBaseUrl` 发送当前资源的 Bearer 并保留调用方 `AbortSignal`。401 使该资源授权失效，403 交给权限视图处理，503 表示权威不可用。SSE 通过 `withEventStream` 传递 `Last-Event-ID` 和取消信号，调用方负责解析和断点续读。`new Rbac3ApiClient({ transport: api })` 使用同一客户端。应用保持自己的登录触发与权限 bootstrap，写请求由用户或应用显式发起。
 
 ## 权限视图、Guard 与字段体验
 

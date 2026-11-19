@@ -1,6 +1,6 @@
 {
   "name": "@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "files": [
     "dist",
@@ -54,6 +54,6 @@
   },
   "license": "(MIT OR LGPL-2.1-only)",
   "dependencies": {
-    "@stellar-enclosure/stellar-enclosure-web-shared": "0.0.1"
+    "@stellar-enclosure/stellar-enclosure-web-shared": "0.1.0"
   }
 }
