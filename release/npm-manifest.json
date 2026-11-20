@@ -1,14 +1,14 @@
 {
-  "version": "0.0.1",
+  "version": "0.1.1",
   "npmScope": "@stellar-enclosure",
   "packages": [
     {
       "name": "@stellar-enclosure/stellar-enclosure-web-shared",
-      "version": "0.0.1",
-      "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.0.1.tgz",
-      "integrity": "sha512-dDJmtPV9HerDidmf4Axp8IavVBE+k4lnAKKybK2O0C83Zfbews/hEZg8EYlKv6ijJzcqg9Ki1GpDCt00/EP9RA==",
-      "shasum": "309e319f36c5fb33d65613f9167536e724979288",
-      "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.0.1.tgz",
+      "version": "0.1.1",
+      "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.1.1.tgz",
+      "integrity": "sha512-KVJ6T4szlI+PgVYE1l3geeXwMe9K1BHiIsGLv5tQ2RforK4/FW/FvhCaijrQHVhPSm4rGFnbEg9uV6efcNULPw==",
+      "shasum": "d7dd4247ae91c3bc886fa5b8d89efe83dae15d4a",
+      "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.1.1.tgz",
       "peerDependencies": {
         "@ant-design/icons": "^6.3.2",
         "@tanstack/react-query": "^5.101.4",
@@ -32,12 +32,12 @@
         },
         {
           "path": "README.md",
-          "size": 13367,
+          "size": 13042,
           "mode": 420
         },
         {
           "path": "dist/admin-web-shared.js",
-          "size": 54820,
+          "size": 78510,
           "mode": 420
         },
         {
@@ -52,12 +52,12 @@
         },
         {
           "path": "dist/api/httpClient.d.ts",
-          "size": 1026,
+          "size": 1340,
           "mode": 420
         },
         {
           "path": "dist/api/httpClient.d.ts.map",
-          "size": 924,
+          "size": 1293,
           "mode": 420
         },
         {
@@ -72,12 +72,12 @@
         },
         {
           "path": "dist/auth/gatewayAuthClient.d.ts",
-          "size": 2864,
+          "size": 2885,
           "mode": 420
         },
         {
           "path": "dist/auth/gatewayAuthClient.d.ts.map",
-          "size": 2742,
+          "size": 2677,
           "mode": 420
         },
         {
@@ -132,12 +132,12 @@
         },
         {
           "path": "dist/components/PageTemplate.d.ts",
-          "size": 652,
+          "size": 748,
           "mode": 420
         },
         {
           "path": "dist/components/PageTemplate.d.ts.map",
-          "size": 672,
+          "size": 764,
           "mode": 420
         },
         {
@@ -148,6 +148,16 @@
         {
           "path": "dist/components/PermissionGate.d.ts.map",
           "size": 596,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/WorkspaceList.d.ts",
+          "size": 1530,
+          "mode": 420
+        },
+        {
+          "path": "dist/components/WorkspaceList.d.ts.map",
+          "size": 1706,
           "mode": 420
         },
         {
@@ -222,12 +232,12 @@
         },
         {
           "path": "dist/index.d.ts",
-          "size": 2718,
+          "size": 3845,
           "mode": 420
         },
         {
           "path": "dist/index.d.ts.map",
-          "size": 2004,
+          "size": 2733,
           "mode": 420
         },
         {
@@ -272,12 +282,12 @@
         },
         {
           "path": "dist/layout/types.d.ts",
-          "size": 3629,
+          "size": 3798,
           "mode": 420
         },
         {
           "path": "dist/layout/types.d.ts.map",
-          "size": 1917,
+          "size": 1991,
           "mode": 420
         },
         {
@@ -387,22 +397,22 @@
         },
         {
           "path": "dist/theme/ThemeProvider.d.ts",
-          "size": 198,
+          "size": 442,
           "mode": 420
         },
         {
           "path": "dist/theme/ThemeProvider.d.ts.map",
-          "size": 229,
+          "size": 397,
           "mode": 420
         },
         {
           "path": "dist/theme/tokens.d.ts",
-          "size": 995,
+          "size": 1280,
           "mode": 420
         },
         {
           "path": "dist/theme/tokens.d.ts.map",
-          "size": 250,
+          "size": 276,
           "mode": 420
         },
         {
@@ -421,6 +431,26 @@
           "mode": 420
         },
         {
+          "path": "dist/workbench/contracts.d.ts",
+          "size": 3927,
+          "mode": 420
+        },
+        {
+          "path": "dist/workbench/contracts.d.ts.map",
+          "size": 3691,
+          "mode": 420
+        },
+        {
+          "path": "dist/workbench/EmbeddedWorkbench.d.ts",
+          "size": 1395,
+          "mode": 420
+        },
+        {
+          "path": "dist/workbench/EmbeddedWorkbench.d.ts.map",
+          "size": 1366,
+          "mode": 420
+        },
+        {
           "path": "favicon.png",
           "size": 865346,
           "mode": 420
@@ -434,17 +464,17 @@
     },
     {
       "name": "@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk",
-      "version": "0.0.1",
-      "filename": "stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
-      "integrity": "sha512-m16immQ4ZxhyATE9pM/xHruzfSu9mOhw09n1D3IGjVt0DBj/1uLEgqBWZhg1+enUYWx64NigtEyp8UccfzQ3rQ==",
-      "shasum": "ef5582839763ec4ba1dcc09b34292c63c913a972",
-      "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk/-/stellar-enclosure-tianquan-jianshen-react-sdk-0.0.1.tgz",
+      "version": "0.1.1",
+      "filename": "stellar-enclosure-stellar-enclosure-tianquan-jianshen-react-sdk-0.1.1.tgz",
+      "integrity": "sha512-wsJVuTrfSxZ1kK8Z33c8r52s3pK8O4aj+AwWu8GsbgjwqPeWu/AeN1Quxas3TOpGYEc+U1laicIXiRBu97Ez4A==",
+      "shasum": "8a766a0e7da7df13478042ade351e4a3b8d9d6e1",
+      "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk/-/stellar-enclosure-tianquan-jianshen-react-sdk-0.1.1.tgz",
       "peerDependencies": {
         "react": "^19.2.8",
         "react-dom": "^19.2.8"
       },
       "dependencies": {
-        "@stellar-enclosure/stellar-enclosure-web-shared": "0.0.1"
+        "@stellar-enclosure/stellar-enclosure-web-shared": "0.1.1"
       },
       "files": [
         {
@@ -459,12 +489,12 @@
         },
         {
           "path": "README.md",
-          "size": 4521,
+          "size": 4583,
           "mode": 420
         },
         {
           "path": "dist/client/Rbac3ApiClient.d.ts",
-          "size": 1221,
+          "size": 1251,
           "mode": 420
         },
         {
@@ -719,37 +749,38 @@
     {
       "repository": "tianshu-web",
       "offlineInstall": "PASS",
-      "buildAndTests": "PASS"
+      "buildAndTests": "NOT_RUN"
     },
     {
       "repository": "yuheng-web",
       "offlineInstall": "PASS",
-      "buildAndTests": "PASS"
+      "buildAndTests": "NOT_RUN"
     },
     {
       "repository": "yaoguang-web",
       "offlineInstall": "PASS",
-      "buildAndTests": "PASS"
+      "buildAndTests": "NOT_RUN"
     },
     {
       "repository": "tianquan-jianshen-web",
       "offlineInstall": "PASS",
-      "buildAndTests": "PASS"
+      "buildAndTests": "NOT_RUN"
     },
     {
       "repository": "tianquan-shoubing-web",
       "offlineInstall": "PASS",
-      "buildAndTests": "PASS"
+      "buildAndTests": "NOT_RUN"
+    },
+    {
+      "repository": "tianji-web",
+      "offlineInstall": "PASS",
+      "buildAndTests": "NOT_RUN"
     },
     {
       "repository": "portal",
       "offlineInstall": "PASS",
-      "buildAndTests": "PASS"
+      "buildAndTests": "NOT_RUN"
     }
   ],
-  "registryColdInstall": "PASS",
-  "registryColdInstallConsumers": [
-    "tianshu-web",
-    "tianquan-jianshen-web"
-  ]
+  "registryColdInstall": "PENDING_USER_PUBLICATION"
 }

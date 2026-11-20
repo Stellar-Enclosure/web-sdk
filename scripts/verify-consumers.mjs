@@ -3,28 +3,76 @@ import {readFileSync, writeFileSync, mkdirSync, existsSync, cpSync} from 'node:f
 import {resolve, isAbsolute, join} from 'node:path'
 import {spawnSync} from 'node:child_process'
 import {realpathSync} from 'node:fs'
+import {pathToFileURL} from 'node:url'
 import {toolRoot, verifyToolchain} from './permissions/prepare-contract.mjs'
 import {main} from './permission-manifest.mjs'
 
-const args = new Map()
-for (let index = 2; index < process.argv.length; index += 2) {
-  const key = process.argv[index]
-  const value = process.argv[index + 1]
-  if (!['--workspace', '--cache', '--output', '--phase', '--consumer', '--online'].includes(key) || !value || args.has(key)) {
-    throw new Error('Usage: verify-consumers.mjs --workspace ABS --cache ABS --output ABS [--phase prepare|verify]')
+export const KNOWN_CONSUMERS = ['tianshu-web', 'yuheng-web', 'yaoguang-web', 'tianquan-jianshen-web', 'tianquan-shoubing-web', 'tianji-web', 'portal']
+
+export const aliases = new Map([
+  ['@egon-cola/admin-web-shared', '@stellar-enclosure/stellar-enclosure-web-shared'],
+  ['@egon-cola/xingyuan-admin-web-shared', '@stellar-enclosure/stellar-enclosure-web-shared'],
+  ['@egon-cola/rbac3-react-sdk', '@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk'],
+  ['@egon-cola/tianquan-jianshen-react-sdk', '@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk'],
+])
+
+export function parseVerifyArgs(argv) {
+  const args = new Map()
+  for (let index = 0; index < argv.length; index += 2) {
+    const key = argv[index]
+    const value = argv[index + 1]
+    if (!['--workspace', '--cache', '--output', '--phase', '--consumer', '--online'].includes(key) || !value || args.has(key)) {
+      throw new Error('Usage: verify-consumers.mjs --workspace ABS --cache ABS --output ABS [--phase prepare|verify]')
+    }
+    args.set(key, value)
   }
-  args.set(key, value)
+  for (const name of ['--workspace', '--cache', '--output']) {
+    if (!isAbsolute(args.get(name) ?? '')) throw new Error(name + ' must be an absolute path')
+  }
+  const workspace = resolve(args.get('--workspace'))
+  const cache = resolve(args.get('--cache'))
+  const output = resolve(args.get('--output'))
+  const phase = args.get('--phase') ?? 'verify'
+  const online = args.get('--online') === 'true'
+  if (!['prepare', 'verify'].includes(phase) || output === workspace || cache === workspace
+    || output.includes('/.git/') || cache.includes('/.git/')) throw new Error('Unsafe parameters')
+  const requested = args.get('--consumer')
+  if (requested && !KNOWN_CONSUMERS.includes(requested)) throw new Error('Unknown consumer: ' + requested)
+  return {workspace, cache, output, phase, online, requested}
 }
-for (const name of ['--workspace', '--cache', '--output']) {
-  if (!isAbsolute(args.get(name) ?? '')) throw new Error(name + ' must be an absolute path')
+
+export function reconcileConsumerLock({repo, pkg, lock, packages, phase}) {
+  const committedLock = JSON.stringify(lock)
+  lock.name = pkg.name
+  lock.version = pkg.version
+  lock.packages[''] = Object.fromEntries(Object.entries(pkg).filter(([key]) =>
+    ['name', 'version', 'dependencies', 'devDependencies', 'optionalDependencies', 'engines'].includes(key)))
+  for (const [key, value] of Object.entries(lock.packages)) {
+    const relativeName = key.startsWith('node_modules/') ? key.slice('node_modules/'.length) : ''
+    if (aliases.has(relativeName)) {
+      delete lock.packages[key]
+      if (!pkg.dependencies?.[aliases.get(relativeName)]) continue
+    }
+    if (value.link) delete lock.packages[key]
+  }
+  for (const [name, version] of Object.entries(pkg.dependencies ?? {})) {
+    if (!name.startsWith('@stellar-enclosure/')) continue
+    const packed = packages.get(name)
+    if (!packed || version !== packed.version) throw new Error('Unprepared SDK: ' + name + '@' + version)
+    lock.packages['node_modules/' + name] = {
+      version: packed.version, resolved: packed.resolved, integrity: packed.integrity,
+      ...(packed.peerDependencies ? {peerDependencies: packed.peerDependencies} : {}),
+      ...(packed.dependencies ? {dependencies: packed.dependencies} : {}),
+    }
+  }
+  if (phase === 'verify' && JSON.stringify(lock) !== committedLock) {
+    throw new Error('Committed lock differs from the actual SDK tarball: ' + repo + '; run --phase prepare explicitly')
+  }
+  return lock
 }
-const workspace = resolve(args.get('--workspace'))
-const cache = resolve(args.get('--cache'))
-const output = resolve(args.get('--output'))
-const phase = args.get('--phase') ?? 'verify'
-const online = args.get('--online') === 'true'
-if (!['prepare', 'verify'].includes(phase) || output === workspace || cache === workspace
-  || output.includes('/.git/') || cache.includes('/.git/')) throw new Error('Unsafe parameters')
+
+async function runCli() {
+const {workspace, cache, output, phase, online, requested} = parseVerifyArgs(process.argv.slice(2))
 mkdirSync(output, {recursive: true})
 mkdirSync(cache, {recursive: true})
 const json = (file) => JSON.parse(readFileSync(file, 'utf8'))
@@ -69,46 +117,11 @@ for (const directory of ['stellar-enclosure-web-shared', 'stellar-enclosure-tian
     peerDependencies: pkg.peerDependencies, dependencies: pkg.dependencies, files: packed.files,
   })
 }
-const aliases = new Map([
-  ['@egon-cola/admin-web-shared', '@stellar-enclosure/stellar-enclosure-web-shared'],
-  ['@egon-cola/xingyuan-admin-web-shared', '@stellar-enclosure/stellar-enclosure-web-shared'],
-  ['@egon-cola/rbac3-react-sdk', '@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk'],
-  ['@egon-cola/tianquan-jianshen-react-sdk', '@stellar-enclosure/stellar-enclosure-tianquan-jianshen-react-sdk'],
-])
-const consumers = ['tianshu-web', 'yuheng-web', 'yaoguang-web', 'tianquan-jianshen-web', 'tianquan-shoubing-web', 'portal']
-const requested = args.get('--consumer')
-if (requested && !consumers.includes(requested)) throw new Error('Unknown consumer: ' + requested)
 const results = []
-for (const repo of requested ? [requested] : consumers) {
+for (const repo of requested ? [requested] : KNOWN_CONSUMERS) {
   const root = join(workspace, repo)
   const pkg = json(join(root, 'package.json'))
-  const lock = json(join(root, 'package-lock.json'))
-  const committedLock = JSON.stringify(lock)
-  lock.name = pkg.name
-  lock.version = pkg.version
-  lock.packages[''] = Object.fromEntries(Object.entries(pkg).filter(([key]) =>
-    ['name', 'version', 'dependencies', 'devDependencies', 'optionalDependencies', 'engines'].includes(key)))
-  for (const [key, value] of Object.entries(lock.packages)) {
-    const relativeName = key.startsWith('node_modules/') ? key.slice('node_modules/'.length) : ''
-    if (aliases.has(relativeName)) {
-      delete lock.packages[key]
-      if (!pkg.dependencies?.[aliases.get(relativeName)]) continue
-    }
-    if (value.link) delete lock.packages[key]
-  }
-  for (const [name, version] of Object.entries(pkg.dependencies ?? {})) {
-    if (!name.startsWith('@stellar-enclosure/')) continue
-    const packed = packages.get(name)
-    if (!packed || version !== packed.version) throw new Error('Unprepared SDK: ' + name + '@' + version)
-    lock.packages['node_modules/' + name] = {
-      version: packed.version, resolved: packed.resolved, integrity: packed.integrity,
-      ...(packed.peerDependencies ? {peerDependencies: packed.peerDependencies} : {}),
-      ...(packed.dependencies ? {dependencies: packed.dependencies} : {}),
-    }
-  }
-  if (phase === 'verify' && JSON.stringify(lock) !== committedLock) {
-    throw new Error('Committed lock differs from the actual SDK tarball: ' + repo + '; run --phase prepare explicitly')
-  }
+  const lock = reconcileConsumerLock({repo, pkg, lock: json(join(root, 'package-lock.json')), packages, phase})
   if (phase === 'prepare') save(join(root, 'package-lock.json'), lock)
   if (online) run(root, 'npm', ['ci', '--ignore-scripts'])
   run(root, 'npm', ['ci', '--offline', '--ignore-scripts'])
@@ -126,3 +139,8 @@ mkdirSync(join(sdkRoot, 'release'), {recursive: true})
 if (phase === 'prepare') save(join(sdkRoot, 'release', 'npm-manifest.json'), manifest)
 save(join(output, 'npm-manifest.json'), manifest)
 console.log('PASS: ' + phase + '; no registry publication was performed')
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
+  await runCli()
+}

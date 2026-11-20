@@ -4,12 +4,12 @@
   "nodeMajor": 24,
   "sdk": {
     "commit": null,
-    "sourceDigest": "4ce5cdf1009eba54de7bdb7ba33525f18ac095b14f6341fa9c976900481ca062",
-    "dependencyLockSha256": "75de64d12b43ed0043814baae420d5fa9036401d194154168eb553f72925d4b2"
+    "sourceDigest": "50357d0094cb44080eaf861c494ddc6635e4ae571c62e0fd0b0bad703914eaa3",
+    "dependencyLockSha256": "b57d31973a67dc759f219417081f16c9255432f75e2f4370c583fcd0d12a297f"
   },
   "contract": {
     "coordinates": "top.egon:stellar-enclosure-tianquan-jianshen-contract:0.0.1",
-    "sha256": "c018a124bce8ee97c8403367f83802dc56fd1cea7bfe04fd68b24b051abeb9c6",
+    "sha256": "0879ed2c3e6146e55197552a197ecfbc6f91241180729f2aa5f1f3d54a467250",
     "entries": {
       "permission-manifest/schema-v1.json": "eab9125dee3357ef69221f9a28b5a17c2fe04da2a012f0e4f4538c8d4ac84e6c",
       "permission-contract/manifest-v1.json": "844aa3391c9d965a4a94c312c6baea0e37db19c3961246bc4520dda4b4a41a87",
