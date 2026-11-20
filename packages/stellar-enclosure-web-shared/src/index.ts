@@ -70,3 +70,46 @@ export * from './permissions'
 
 export { usePermissionSnapshot } from './permissions/usePermissionSnapshot'
 export { PermissionGate, type PermissionGateProps } from './components/PermissionGate'
+
+// Workbench bridge
+export {
+  WORKBENCH_PROTOCOL_VERSION,
+  WORKBENCH_MAX_PAGES,
+  WORKBENCH_MAX_PATH_LENGTH,
+  WORKBENCH_MAX_LABEL_LENGTH,
+  bridgeOk,
+  bridgeFail,
+  isPositiveSafeInteger,
+  isNonNegativeSafeInteger,
+  validateRelativeRoutePath,
+  normalizeRouteSearch,
+  normalizeRouteTarget,
+  validatePageDescriptor,
+  validateAppCatalogUpdate,
+  validatePresentation,
+  validateLeaveCheck,
+  validateRouteRequest,
+  type WorkbenchProtocolVersion,
+  type WorkbenchPlatformKey,
+  type BridgeErrorCode,
+  type BridgeResult,
+  type AppCatalogStatus,
+  type RouteTarget,
+  type AppPageDescriptor,
+  type AppCatalogUpdate,
+  type Presentation,
+  type LeaveReason,
+  type LeaveCheck,
+  type LeaveResult,
+  type RouteRequest,
+  type WorkbenchPort,
+  type WorkbenchHost,
+} from './workbench/contracts'
+export {
+  EmbeddedWorkbench,
+  useEmbeddedWorkbench,
+  useWorkbenchLeaveGuard,
+  type EmbeddedWorkbenchProps,
+  type EmbeddedWorkbenchContextValue,
+  type LeaveGuardState,
+} from './workbench/EmbeddedWorkbench'
