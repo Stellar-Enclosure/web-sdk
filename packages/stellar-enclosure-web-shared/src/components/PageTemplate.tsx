@@ -13,6 +13,8 @@ export interface PageTemplateProps {
   readonly subtitle?: string
   readonly breadcrumbs?: readonly BreadcrumbItem[]
   readonly extra?: ReactNode
+  readonly mode?: 'default' | 'content'
+  readonly hideHeader?: boolean
   readonly pageState: Omit<PageStateProps, 'children'>
   readonly children: ReactNode
 }
@@ -22,13 +24,20 @@ export const PageTemplate = ({
   subtitle,
   breadcrumbs,
   extra,
+  mode = 'default',
+  hideHeader = false,
   pageState,
   children,
-}: PageTemplateProps) => (
-  <div>
-    <PageHeader title={title} subtitle={subtitle} breadcrumbs={breadcrumbs} extra={extra} />
-    <Card>
-      <PageState {...pageState}>{children}</PageState>
-    </Card>
-  </div>
-)
+}: PageTemplateProps) => {
+  const omitHeader = hideHeader || mode === 'content'
+  return (
+    <section aria-label={title} data-page-mode={mode}>
+      {!omitHeader && (
+        <PageHeader title={title} subtitle={subtitle} breadcrumbs={breadcrumbs} extra={extra} />
+      )}
+      <Card>
+        <PageState {...pageState}>{children}</PageState>
+      </Card>
+    </section>
+  )
+}

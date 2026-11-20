@@ -77,4 +77,6 @@ export interface EnterpriseLayoutConfig extends EnterpriseHeaderConfig {
   readonly hideHeader?: boolean
   /** Embedded child shell can hide the host-owned footer without changing content geometry. */
   readonly hideFooter?: boolean
+  /** Workbench layout mode: 'content' removes child chrome/sidebar for full-width workbench tabs. */
+  readonly layoutMode?: 'standalone' | 'embedded' | 'content'
 }

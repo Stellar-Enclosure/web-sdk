@@ -208,4 +208,19 @@ describe('EnterpriseLayout', () => {
 
     expect(screen.getByText('子级').closest('.ant-menu-item')).toHaveClass('ant-menu-item-selected')
   })
+
+  it('supports workbench content mode without header, footer, sidebar, or narrow 44px rail', () => {
+    setViewport(false)
+    const { container } = renderLayoutWith({
+      ...config,
+      layoutMode: 'content',
+    })
+
+    expect(screen.queryByText('Tianshu Admin')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: '主菜单' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '打开导航' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/版本 v0\.0\.1/)).not.toBeInTheDocument()
+    expect(screen.getByText('注册页内容')).toBeInTheDocument()
+    expect(container.querySelector('[data-layout-mode="content"]')).not.toBeNull()
+  })
 })

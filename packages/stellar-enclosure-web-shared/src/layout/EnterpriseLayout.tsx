@@ -21,6 +21,12 @@ export const EnterpriseLayout = ({config, children}: EnterpriseLayoutProps) => {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigation = useMemo(() => config.navigation ?? [], [config.navigation])
   const full = screens.lg === true
+  const layoutMode = config.layoutMode ?? (config.hideHeader === true && config.hideFooter === true ? 'embedded' : 'standalone')
+  const contentMode = layoutMode === 'content'
+  const hideHeader = contentMode || config.hideHeader === true
+  const hideFooter = contentMode || config.hideFooter === true
+  const showNavigation = !contentMode && navigation.length > 0
+
   const selection = useMemo(
     () => resolveNavigationSelection(navigation, location.pathname),
     [location.pathname, navigation],
@@ -45,36 +51,45 @@ export const EnterpriseLayout = ({config, children}: EnterpriseLayoutProps) => {
   }, [selection.ancestorKeys])
 
   const mainColumn = (
-    <Layout style={{minWidth: 0, flex: '1 1 auto'}}>
+    <Layout style={{minWidth: 0, flex: '1 1 auto', height: contentMode ? '100%' : undefined}}>
       <Layout.Content
         style={{
-          flex: '1 0 auto', minWidth: 0, overflowX: 'hidden', padding: screens.md ? 24 : 12,
+          flex: '1 1 auto',
+          minWidth: 0,
+          minHeight: 0,
+          overflowX: 'hidden',
+          overflowY: contentMode ? 'auto' : undefined,
+          padding: contentMode ? (screens.md ? 16 : 12) : (screens.md ? 24 : 12),
           ...config.contentStyle,
         }}
       >
         {children}
       </Layout.Content>
-      {config.hideFooter !== true && (
+      {!hideFooter && (
         <EnterpriseFooter platformName={config.platformName} labels={config.labels} {...config.footer}/>
       )}
     </Layout>
   )
 
   return (
-    <Layout style={{minHeight: '100vh'}}>
-      {config.hideHeader !== true && (
+    <Layout
+      data-layout-mode={layoutMode}
+      data-workbench-overlay-root={contentMode ? 'true' : undefined}
+      style={{minHeight: contentMode ? 0 : '100vh', height: contentMode ? '100%' : undefined}}
+    >
+      {!hideHeader && (
         <EnterpriseHeader
           platformName={config.platformName}
           logo={config.logo}
           user={config.user}
           actions={config.actions}
           labels={config.labels}
-          mobileNavigationVisible={!full && navigation.length > 0}
+          mobileNavigationVisible={!full && showNavigation}
           onOpenNavigation={() => setDrawerOpen(true)}
         />
       )}
-      <Layout hasSider={full && navigation.length > 0}>
-        {navigation.length > 0 && (
+      <Layout hasSider={full && showNavigation} style={{minHeight: 0, flex: '1 1 auto'}}>
+        {showNavigation && (
           <EnterpriseSidebar
             items={navigation}
             collapsed={collapsed}

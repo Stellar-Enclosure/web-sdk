@@ -1,6 +1,6 @@
 // Theme
 export { designTokens, injectTokens, type DesignTokens } from './theme/tokens'
-export { AdminThemeProvider } from './theme/ThemeProvider'
+export { AdminThemeProvider, type AdminThemeProviderProps } from './theme/ThemeProvider'
 
 // API
 export { createHttpClient, type HttpClient, type HttpClientConfig, type HttpRequestOptions, type ResourceRequestAuthority } from './api/httpClient'
@@ -39,6 +39,13 @@ export { PageHeader, type PageHeaderProps } from './components/PageHeader'
 export { PageState, type PageStateProps } from './components/PageState'
 export { AppErrorBoundary, type AppErrorBoundaryProps } from './components/AppErrorBoundary'
 export { PageTemplate, type PageTemplateProps, type BreadcrumbItem } from './components/PageTemplate'
+export {
+  WorkspaceList,
+  validatePureDateRange,
+  type WorkspaceListProps,
+  type WorkspaceListPagination,
+  type PureDateValidationResult,
+} from './components/WorkspaceList'
 export {
   ListColumnSelector, ListColumnSettings, type ListColumnOption, type ListColumnSelection,
   type ListColumnLabels, type ListColumnSelectorProps, type ListColumnSettingsProps,
