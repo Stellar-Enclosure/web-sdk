@@ -6,8 +6,8 @@
       "name": "@stellar-enclosure/stellar-enclosure-web-shared",
       "version": "0.1.1",
       "filename": "stellar-enclosure-stellar-enclosure-web-shared-0.1.1.tgz",
-      "integrity": "sha512-KVJ6T4szlI+PgVYE1l3geeXwMe9K1BHiIsGLv5tQ2RforK4/FW/FvhCaijrQHVhPSm4rGFnbEg9uV6efcNULPw==",
-      "shasum": "d7dd4247ae91c3bc886fa5b8d89efe83dae15d4a",
+      "integrity": "sha512-nD4fyHDO/WcR4d+hY0VtbLAGSs4gKZIovsulngq1E1oPBodvhe5OVUYHdEiUmWJvHIkvOHFJ4DwytMaDVoXBOA==",
+      "shasum": "db54156be4fcd19101ebb38d02d493d3935f49be",
       "resolved": "https://registry.npmjs.org/@stellar-enclosure/stellar-enclosure-web-shared/-/stellar-enclosure-web-shared-0.1.1.tgz",
       "peerDependencies": {
         "@ant-design/icons": "^6.3.2",
@@ -37,7 +37,7 @@
         },
         {
           "path": "dist/admin-web-shared.js",
-          "size": 78510,
+          "size": 78717,
           "mode": 420
         },
         {

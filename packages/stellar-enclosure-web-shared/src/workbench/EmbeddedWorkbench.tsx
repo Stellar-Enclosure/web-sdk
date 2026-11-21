@@ -176,20 +176,35 @@ export function EmbeddedWorkbench({
           }
           const handlerResult = await onPresentRef.current(linkedPresentation)
           if (!mountedRef.current || !attachedRef.current) {
+            if (lastPresentationRef.current === presentation) {
+              lastPresentationRef.current = undefined
+            }
             return bridgeFail('STALE_INSTANCE')
           }
           if (presentation.signal.aborted) {
+            if (lastPresentationRef.current === presentation) {
+              lastPresentationRef.current = undefined
+            }
             return bridgeFail('SUPERSEDED')
           }
           if (localController.signal.aborted && lastNavigationIdRef.current !== presentation.navigationId) {
+            if (lastPresentationRef.current === presentation) {
+              lastPresentationRef.current = undefined
+            }
             return bridgeFail('SUPERSEDED')
           }
           if (handlerResult && typeof handlerResult === 'object' && 'ok' in handlerResult && !handlerResult.ok) {
+            if (lastPresentationRef.current === presentation) {
+              lastPresentationRef.current = undefined
+            }
             return handlerResult
           }
         }
 
         if (!mountedRef.current || !attachedRef.current) {
+          if (lastPresentationRef.current === presentation) {
+            lastPresentationRef.current = undefined
+          }
           return bridgeFail('STALE_INSTANCE')
         }
 
@@ -209,6 +224,9 @@ export function EmbeddedWorkbench({
         }
         return bridgeOk()
       } catch {
+        if (lastPresentationRef.current === presentation) {
+          lastPresentationRef.current = undefined
+        }
         if (!mountedRef.current || !attachedRef.current) {
           return bridgeFail('STALE_INSTANCE')
         }

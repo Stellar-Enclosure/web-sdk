@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   WORKBENCH_PROTOCOL_VERSION,
+  bridgeFail,
+  bridgeOk,
   validateAppCatalogUpdate,
   type AppCatalogUpdate,
   type AppPageDescriptor,
@@ -376,5 +378,38 @@ describe('EmbeddedWorkbench protocol and instance lifecycle', () => {
     expect(validateAppCatalogUpdate({ catalogRevision: 1, status: 'authorizing', pages: pagesFixture })).toBe(false)
     expect(validateAppCatalogUpdate({ catalogRevision: 1, status: 'ready', pages: [pagesFixture[0], pagesFixture[0]] })).toBe(false)
     expect(validateAppCatalogUpdate({ catalogRevision: 1, status: 'ready', pages: pagesFixture })).toBe(true)
+  })
+
+  it('does not deduplicate a subsequent present after onPresent fails', async () => {
+    const spy = createHostSpy()
+    let allowShow = false
+    const onPresent = vi.fn(async () => (allowShow ? bridgeOk() : bridgeFail('DENIED')))
+
+    render(
+      <EmbeddedWorkbench host={spy.host} status="authorizing" pages={[]} onPresent={onPresent}>
+        <ProbeChild tabKey="tianshu:publishTasks" />
+      </EmbeddedWorkbench>,
+    )
+
+    const port = spy.getPort()!
+    const first = await port.present({
+      mode: 'show',
+      navigationId: 1,
+      target: { path: '/publish-tasks', search: '' },
+      tabKey: '["tianshu","tianshu.page.publishTasks"]',
+      signal: new AbortController().signal,
+    })
+    expect(first).toEqual({ ok: false, code: 'DENIED' })
+
+    allowShow = true
+    const retry = await port.present({
+      mode: 'show',
+      navigationId: 2,
+      target: { path: '/publish-tasks', search: '' },
+      tabKey: '["tianshu","tianshu.page.publishTasks"]',
+      signal: new AbortController().signal,
+    })
+    expect(retry).toEqual({ ok: true })
+    expect(onPresent).toHaveBeenCalledTimes(2)
   })
 })
