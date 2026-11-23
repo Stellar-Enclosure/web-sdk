@@ -27,7 +27,7 @@ export interface Rbac3ProviderProps extends PropsWithChildren {
 
 const NO_RESOURCES: readonly ResourceDefinition[] = []
 const NO_REFERENCES: readonly ResourceReference[] = []
-const RENEW_AHEAD_MS = 15_000
+const RENEW_AHEAD_MS = 20_000
 const RENEW_RETRY_WINDOW_MS = 30_000
 const MAX_RENEW_RETRIES = 5
 

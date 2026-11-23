@@ -25,7 +25,23 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW) })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('Rbac3Provider natural snapshot renewal', () => {
-  it('renews fifteen seconds early and preserves a mounted draft and READY view while the server expiry is valid', async () => {
+  it('covers the observed 15.775-second renewal without an expired interval under the unchanged thirty-second server TTL', async () => {
+    const first = snapshot({ snapshotExpiresAt: expiry(30_000) })
+    const props = fixture({ getPermissionSnapshot: vi.fn().mockResolvedValueOnce(first).mockImplementation(async () => {
+      await new Promise(resolve => setTimeout(resolve, 15_775))
+      return snapshot({ snapshotExpiresAt: expiry(30_000) })
+    }) }, first)
+    const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
+    const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
+    await flush()
+    await advance(30_001)
+    expect(result.current.status).toBe('READY')
+    expect(result.current.snapshot?.snapshotExpiresAt).toBe(new Date(NOW + 55_775).toISOString())
+    expect(props.client.getPermissionSnapshot).toHaveBeenCalledTimes(2)
+    expect(props.client.replaceActiveRoles).not.toHaveBeenCalled()
+  })
+
+  it('renews twenty seconds early and preserves a mounted draft and READY view while the server expiry is valid', async () => {
     const renewed = deferred<PermissionSnapshot>()
     const first = snapshot({ snapshotExpiresAt: expiry(30_000) })
     const props = fixture({ getPermissionSnapshot: vi.fn().mockResolvedValueOnce(first).mockReturnValueOnce(renewed.promise) }, first)
@@ -42,7 +58,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     render(<Host />)
     await flush()
     fireEvent.change(screen.getByLabelText('draft'), { target: { value: 'unsaved draft' } })
-    await advance(14_999)
+    await advance(9_999)
     expect(props.client.getPermissionSnapshot).toHaveBeenCalledTimes(1)
     await advance(1)
     expect(props.client.getPermissionSnapshot).toHaveBeenCalledTimes(2)
@@ -79,7 +95,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(props.client.getPermissionSnapshot).toHaveBeenCalledTimes(2)
     expect(result.current.snapshot?.snapshotExpiresAt).toBe(first.snapshotExpiresAt)
     await advance(999)
@@ -101,7 +117,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(result.current.snapshot).toBeNull()
     expect(result.current.status).toBe(status === 401 ? 'AUTHENTICATION_REQUIRED' : 'FORBIDDEN_NO_ROUTE')
     await advance(60_000)
@@ -116,7 +132,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result, unmount } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     const signal = fetch.mock.calls[1]?.[0] as AbortSignal
     act(() => props.requestContext.invalidate())
     expect(signal.aborted).toBe(true)
@@ -142,7 +158,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(result.current.snapshot).toBeNull()
     expect(props.client.getPermissionSnapshot).toHaveBeenCalledTimes(2)
   })
@@ -158,7 +174,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     }
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(result.current.status).toBe('READY')
     expect(result.current.binding).toEqual(snapshotContext(next(), 0))
     expect(props.client.getPermissionSnapshot).toHaveBeenCalledTimes(2)
@@ -171,7 +187,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(result.current.snapshot).toBeNull()
   })
 
@@ -201,7 +217,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props} onContextChange={onContextChange}>{children}</Rbac3Provider>
     const { unmount } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     const signal = fetch.mock.calls[1]?.[0] as AbortSignal
     unmount()
     expect(signal.aborted).toBe(true)
@@ -219,7 +235,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(result.current.status).toBe('READY')
     act(() => props.requestContext.invalidate())
     await advance(60_000)
@@ -235,7 +251,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     const signal = fetch.mock.calls[1]?.[0] as AbortSignal
     await act(async () => { await result.current.replaceActiveRoles({ roleIds: ['22'], expectedAuthVersion: 11 }) })
     expect(signal.aborted).toBe(true)
@@ -269,7 +285,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props} binding={{ ...props.binding }}>{children}</Rbac3Provider>
     const { result, rerender } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     const signal = fetch.mock.calls[1]?.[0] as AbortSignal
     rerender()
     await advance(1_000)
@@ -291,7 +307,7 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     }
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(result.current.snapshot?.permissionCodes).toEqual([])
     expect(result.current.binding?.authVersion).toBe('12')
     expect(props.client.getPermissionSnapshot).toHaveBeenCalledTimes(2)
@@ -309,9 +325,9 @@ describe('Rbac3Provider natural snapshot renewal', () => {
     const wrapper = ({ children }: PropsWithChildren) => <Rbac3Provider {...props}>{children}</Rbac3Provider>
     const { result } = renderHook(() => useRbac3Authorization(), { wrapper })
     await flush()
-    await advance(15_000)
+    await advance(10_000)
     expect(result.current.snapshot?.snapshotExpiresAt).toBe(new Date(NOW + 20_000).toISOString())
-    await advance(5_000)
+    await advance(10_000)
     expect(result.current.snapshot).toBeNull()
   })
 
