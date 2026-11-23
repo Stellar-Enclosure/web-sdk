@@ -27,19 +27,33 @@ export interface Rbac3ProviderProps extends PropsWithChildren {
 
 const NO_RESOURCES: readonly ResourceDefinition[] = []
 const NO_REFERENCES: readonly ResourceReference[] = []
+const RENEW_AHEAD_MS = 15_000
+const RENEW_RETRY_WINDOW_MS = 30_000
+const MAX_RENEW_RETRIES = 5
 
-export const Rbac3Provider = ({ client, binding, requestContext, fieldCatalog = null, resources = NO_RESOURCES, resourceReferences = NO_REFERENCES, onContextChange,
+export const Rbac3Provider = ({ client, binding: suppliedBinding, requestContext, fieldCatalog = null, resources = NO_RESOURCES, resourceReferences = NO_REFERENCES, onContextChange,
   autoInitialize = true, children }: Rbac3ProviderProps) => {
+  const inputKey = isPermissionSnapshotContext(suppliedBinding) ? permissionBindingKey(suppliedBinding) : null
+  // Inline host props with the same verified facts must not repeatedly cancel a slow renewal.
+  const binding = useMemo(() => suppliedBinding, [inputKey, suppliedBinding?.requestEpoch])
   const resourceRegistry = useMemo(() => new FrontendResourceRegistry(resources, resourceReferences), [resources, resourceReferences])
   const [state, dispatch] = useReducer(transitionRbac3State, initialRbac3MachineState)
   const epoch = useSyncExternalStore(requestContext.subscribe, () => requestContext.epoch, () => requestContext.epoch)
-  const inputKey = isPermissionSnapshotContext(binding) ? permissionBindingKey(binding) : null
   const sequence = useRef(0)
   const pending = useRef<AbortController | null>(null)
+  const throttledSnapshot = useRef<PermissionSnapshot | null>(null)
+  const renewalRetry = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const currentState = useRef(state)
+  currentState.current = state
+  const contextChange = useRef(onContextChange)
+  contextChange.current = onContextChange
   const replacing = useRef<number | null>(null)
+  const verifiedSource = useRef<{ client: Rbac3Client; requestContext: AuthRequestContext } | null>(null)
   const latestBinding = useRef<{ inputKey: string; binding: PermissionSnapshotContext } | null>(null)
   const begin = useCallback(() => {
     pending.current?.abort()
+    if (renewalRetry.current !== null) clearTimeout(renewalRetry.current)
+    renewalRetry.current = null
     const controller = new AbortController(); pending.current = controller
     const serial = ++sequence.current
     const captured = requestContext.capture(controller.signal)
@@ -79,6 +93,7 @@ export const Rbac3Provider = ({ client, binding, requestContext, fieldCatalog = 
       if (snapshot.catalogScope.applicationCode === 'tianquan-jianshen' && snapshot.activeRoleContext.rootRoleIds.length === 0
         && snapshot.permissionCodes.includes('system:role-activation:use')) await loadActivation(attempt)
       else {
+        verifiedSource.current = { client, requestContext }
         latestBinding.current = { inputKey, binding: expected }
         dispatch({ type: 'ABOUT_SUCCEEDED', about, snapshot, binding: expected })
       }
@@ -90,15 +105,95 @@ export const Rbac3Provider = ({ client, binding, requestContext, fieldCatalog = 
       } catch (currentError) { failure(currentError) }
     }
   }, [binding, inputKey, requestContext, begin, client, loadActivation, failure])
+  const renew = useCallback(async function renewSnapshot(expected: PermissionSnapshotContext, previousExpiry: number,
+    deadline: number, retries = 0): Promise<void> {
+    if (!binding || !inputKey || binding.requestEpoch !== requestContext.epoch
+      || expected.requestEpoch !== requestContext.epoch || replacing.current !== null
+      || retries > 0 && Date.now() >= deadline) return
+    const attempt = begin()
+    const scheduleRetry = (next = expected, expiresAt = previousExpiry): boolean => {
+      const delay = Math.min(1_000 * 2 ** retries, 5_000)
+      if (retries >= MAX_RENEW_RETRIES || Date.now() + delay >= deadline) return false
+      renewalRetry.current = setTimeout(() => {
+        renewalRetry.current = null
+        void renewSnapshot(next, expiresAt, deadline, retries + 1)
+      }, delay)
+      return true
+    }
+    try {
+      // Neither read waits for the other; a short-lived snapshot may have only seconds left on arrival.
+      const [about, response] = await Promise.all([client.getAbout(attempt.signal), client.getPermissionSnapshot(attempt.signal)])
+      attempt.assertCurrent()
+      const next = snapshotContext(response, expected.requestEpoch)
+      const rolesChanged = JSON.stringify(next.activeRoleContext) !== JSON.stringify(expected.activeRoleContext)
+      if (!isSnapshotCurrent(response, next) || next.issuer !== expected.issuer || next.subject !== expected.subject
+        || catalogScopeKey(next.catalogScope) !== catalogScopeKey(expected.catalogScope)
+        || BigInt(next.catalogVersion) < BigInt(expected.catalogVersion)
+        || BigInt(next.authVersion) < BigInt(expected.authVersion) || BigInt(next.policyVersion) < BigInt(expected.policyVersion)
+        || rolesChanged && next.authVersion === expected.authVersion
+        || about.user.subject !== next.subject || about.user.tenantId !== next.catalogScope.tenantId
+        || !Number.isSafeInteger(about.authVersion) || String(about.authVersion) !== next.authVersion
+        || !Number.isSafeInteger(about.policyVersion) || String(about.policyVersion) !== next.policyVersion) {
+        throw new Rbac3RequestError({ status: 409, code: 'INVALID_RESPONSE', message: 'Renewed permission snapshot context changed', retryable: false })
+      }
+      const snapshot = copyPermissionSnapshot(response)
+      const expiresAt = snapshotExpiry(snapshot.snapshotExpiresAt)
+      // Accept new grants/revocations and shorter expiry immediately, even if a reused head does not renew its TTL.
+      throttledSnapshot.current = expiresAt <= previousExpiry ? snapshot : null
+      verifiedSource.current = { client, requestContext }
+      latestBinding.current = { inputKey, binding: next }
+      if (snapshot.catalogScope.applicationCode === 'tianquan-jianshen' && snapshot.activeRoleContext.rootRoleIds.length === 0
+        && snapshot.permissionCodes.includes('system:role-activation:use')) await loadActivation(attempt)
+      else {
+        dispatch({ type: 'ABOUT_SUCCEEDED', about, snapshot, binding: next })
+        if (expiresAt <= previousExpiry) scheduleRetry(next, expiresAt)
+      }
+      contextChange.current?.(next, snapshot)
+    } catch (error) {
+      try { attempt.assertCurrent() } catch { return }
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      const value = classifyError(error)
+      if (value.retryable && (value.status === 0 || value.status >= 500)) {
+        if (!scheduleRetry() && Date.now() >= previousExpiry) failure(error)
+        // A transient read failure does not unmount a still-current authorized view.
+      } else failure(error)
+    }
+  }, [binding, inputKey, requestContext, begin, client, loadActivation, failure])
+
+  const identityKey = binding && inputKey
+    ? JSON.stringify([binding.issuer, binding.subject, catalogScopeKey(binding.catalogScope)]) : null
+  useEffect(() => () => {
+    pending.current?.abort(); sequence.current += 1; replacing.current = null
+    if (renewalRetry.current !== null) clearTimeout(renewalRetry.current)
+    renewalRetry.current = null
+  }, [client, requestContext, epoch, identityKey, autoInitialize])
   useEffect(() => {
-    if (autoInitialize) void initialize()
-    return () => { pending.current?.abort(); sequence.current += 1; replacing.current = null }
+    const established = currentState.current
+    const acceptedEcho = binding && inputKey && established.status === 'READY' && established.binding
+      && binding.requestEpoch === requestContext.epoch && established.requestEpoch === requestContext.epoch
+      && verifiedSource.current?.client === client && verifiedSource.current.requestContext === requestContext
+      && isSnapshotCurrent(established.snapshot, binding)
+    if (autoInitialize) {
+      // A host acknowledging the SDK's verified renewal is not a new login or a reason to clear its component tree.
+      if (acceptedEcho) latestBinding.current = { inputKey, binding: established.binding! }
+      else void initialize()
+    }
   }, [autoInitialize, initialize, epoch])
   useEffect(() => {
     if (!state.snapshot) return
-    const timer = setTimeout(() => dispatch({ type: 'EXPIRED' }), Math.max(1, Math.min(snapshotExpiry(state.snapshot.snapshotExpiresAt) - Date.now(), 2_147_483_647)))
+    const snapshot = state.snapshot
+    const timer = setTimeout(() => dispatch({ type: 'EXPIRED', snapshot }), Math.max(1, Math.min(snapshotExpiry(state.snapshot.snapshotExpiresAt) - Date.now(), 2_147_483_647)))
     return () => clearTimeout(timer)
   }, [state.snapshot])
+  useEffect(() => {
+    if (state.status !== 'READY' || !state.snapshot || !state.binding || state.snapshot === throttledSnapshot.current) return
+    const expected = state.binding
+    const expiresAt = snapshotExpiry(state.snapshot.snapshotExpiresAt)
+    const timer = setTimeout(() => {
+      void renew(expected, expiresAt, Date.now() + RENEW_RETRY_WINDOW_MS)
+    }, Math.max(0, Math.min(expiresAt - Date.now() - RENEW_AHEAD_MS, 2_147_483_647)))
+    return () => clearTimeout(timer)
+  }, [state.status, state.snapshot, state.binding, renew])
 
   const replaceActiveRoles = useCallback(async (request: ReplaceActiveRolesRequest): Promise<ReplaceActiveRolesResult | null> => {
     if (!binding || !inputKey || binding.requestEpoch !== requestContext.epoch || replacing.current !== null) {
@@ -121,6 +216,7 @@ export const Rbac3Provider = ({ client, binding, requestContext, fieldCatalog = 
         || about.user.subject !== next.subject || about.user.tenantId !== next.catalogScope.tenantId) {
         throw new Rbac3RequestError({ status: 409, code: 'INVALID_RESPONSE', message: 'Permission snapshot context changed', retryable: true })
       }
+      verifiedSource.current = { client, requestContext }
       latestBinding.current = { inputKey, binding: next }
       dispatch({ type: 'ABOUT_SUCCEEDED', about, snapshot: copyPermissionSnapshot(response), binding: next })
       onContextChange?.(next, copyPermissionSnapshot(response))
@@ -137,13 +233,18 @@ export const Rbac3Provider = ({ client, binding, requestContext, fieldCatalog = 
     } finally { if (replacing.current === attempt.serial) replacing.current = null }
   }, [binding, inputKey, requestContext, begin, client, loadActivation, onContextChange, failure])
 
-  const contextMatches = binding !== null && binding.requestEpoch === epoch && state.requestEpoch === epoch && state.inputBindingKey === inputKey
+  const snapshotCurrent = state.snapshot === null || isSnapshotCurrent(state.snapshot, state.binding)
+  const acceptedEcho = binding !== null && state.binding !== null && inputKey === permissionBindingKey(state.binding)
+  const contextMatches = binding !== null && binding.requestEpoch === epoch && state.requestEpoch === epoch
+    && verifiedSource.current?.client === client && verifiedSource.current.requestContext === requestContext
+    && (state.inputBindingKey === inputKey || acceptedEcho) && snapshotCurrent
   const value = useMemo<Rbac3AuthorizationContextValue>(() => ({ ...state,
-    status: state.status === 'READY' && !contextMatches ? 'UNINITIALIZED' : state.status,
+    status: state.status === 'READY' && !contextMatches ? snapshotCurrent ? 'UNINITIALIZED' : 'ERROR_RETRYABLE' : state.status,
+    errorCode: !snapshotCurrent ? 'PERMISSION_SNAPSHOT_EXPIRED' : state.errorCode,
     about: contextMatches ? state.about : null, snapshot: contextMatches ? state.snapshot : null,
     binding: contextMatches ? state.binding : null, candidates: contextMatches ? state.candidates : null,
     activeRoles: contextMatches ? state.activeRoles : null, fieldCatalog, resourceRegistry, replaceActiveRoles, retry: initialize,
-  }), [state, contextMatches, fieldCatalog, resourceRegistry, replaceActiveRoles, initialize])
+  }), [state, contextMatches, snapshotCurrent, fieldCatalog, resourceRegistry, replaceActiveRoles, initialize])
   return <Rbac3AuthorizationContext.Provider value={value}>{children}</Rbac3AuthorizationContext.Provider>
 }
 

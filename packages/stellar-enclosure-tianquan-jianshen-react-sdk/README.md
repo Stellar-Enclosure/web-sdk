@@ -32,7 +32,9 @@ const binding = snapshotContext(snapshot, captured.epoch)
 
 API008 固定为 `GET /api/v1/authorization/effective-permissions`，只读取当前受权上下文，没有任意 subject/tenant 查询参数。返回完整快照，版本/ID 字段为十进制字符串。旧 About 的 `permissions/resourceCodes/fieldPolicies` 不再作为 Guard 输入；About 仅提供当前用户/角色/落地页元数据，旧角色管理 DTO 仍按其各自既有 wire 类型传输，不把其数字版本当作权限证明。
 
-Provider 初始加载严格核对 host 提供的完整 binding；401、403、失败、scope/版本/role/epoch 不匹配和到期都使旧权限视图失效。角色变更先清旧视图，成功后重新读取 API008 并校验同 issuer/subject/完整 scope/catalog，更新 auth/policy/role 事实并通过 `onContextChange(context, snapshot)` 回调 host。host 应把 `{...context, snapshotExpiresAt: snapshot.snapshotExpiresAt}` 传给文本 loader；失败不恢复旧授权，也不自动重放写操作。
+Provider 初始加载严格核对 host 提供的完整 binding。自然续期在服务器 `snapshotExpiresAt` 前 15 秒启动；首次快照到手已不足 15 秒时立即启动，并行读取 About 与 API008。只接受同一 verified issuer、subject、完整 scope、request epoch，catalog/auth/policy 版本均不得回退，角色上下文变化必须伴随 authVersion 推进；About 的 auth/policy 版本必须与新快照一致。有效期内续期不会进入 loading 或卸载仍获准显示的组件，因此本地草稿可继续保留；`onContextChange(context, snapshot)` 会传递新版本和服务器到期时间，host 回写同一组已验证事实不会触发重新初始化。
+
+自然续期不会延长服务器 TTL。旧快照到期立即关闭授权；同一身份下仍在途的有效新快照可恢复视图。有效响应中的新授权事实、撤权及更早的到期时间立即采用；若 expiresAt 未前移，后续读取与网络错误、可重试 5xx 一样按 1/2/4/5/5 秒退避，最多重试 5 次，并且不在首轮续期的 30 秒窗口后发起新重试；仍有效的旧视图保留到自身到期。401、403、无效响应、版本或身份/scope 不匹配立即关闭授权，不自动重试。注销、身份/epoch 切换、卸载和显式角色变更会取消续期及已排队的重试，后台只重试上述 GET，绝不重放写入。角色变更仍先清旧视图，成功后重新读取 API008 并校验同 issuer/subject/完整 scope/catalog，失败不恢复旧授权。host 应把 `{...context, snapshotExpiresAt: snapshot.snapshotExpiresAt}` 传给文本 loader。
 
 ## 代码声明和 Guard
 

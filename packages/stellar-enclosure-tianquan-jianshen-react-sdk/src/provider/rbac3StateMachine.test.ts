@@ -24,4 +24,13 @@ describe('Tianquan-Jianshen state machine', () => {
       expect(transitionRbac3State(ready, event).snapshot).toBeNull()
     }
   })
+  it('does not let an old snapshot expiry callback clear a newer accepted snapshot', () => {
+    const old = snapshot()
+    const ready = transitionRbac3State(loading(), { type: 'ABOUT_SUCCEEDED', about, snapshot: old, binding })
+    const renewed = snapshot({ snapshotExpiresAt: new Date(Date.now() + 90_000).toISOString() })
+    const refreshed = transitionRbac3State(ready, { type: 'ABOUT_SUCCEEDED', about, snapshot: renewed, binding })
+    expect(transitionRbac3State(refreshed, { type: 'EXPIRED', snapshot: old })).toBe(refreshed)
+    expect(transitionRbac3State(refreshed, { type: 'EXPIRED', snapshot: renewed }).snapshot).toBeNull()
+  })
+
 })

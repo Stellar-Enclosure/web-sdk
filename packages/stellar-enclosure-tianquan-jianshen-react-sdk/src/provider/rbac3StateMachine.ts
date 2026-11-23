@@ -22,7 +22,7 @@ export type Rbac3MachineEvent =
   | { readonly type: 'AUTHENTICATION_REQUIRED'; readonly errorCode?: string }
   | { readonly type: 'FORBIDDEN'; readonly errorCode: string }
   | { readonly type: 'ERROR'; readonly errorCode: string; readonly retryable: boolean }
-  | { readonly type: 'EXPIRED' }
+  | { readonly type: 'EXPIRED'; readonly snapshot?: PermissionSnapshot }
 
 export const initialRbac3MachineState: Rbac3MachineState = Object.freeze({
   status: 'UNINITIALIZED', about: null, snapshot: null, binding: null, inputBindingKey: null, requestEpoch: -1,
@@ -45,6 +45,8 @@ export const transitionRbac3State = (state: Rbac3MachineState, event: Rbac3Machi
     case 'AUTHENTICATION_REQUIRED': return { ...cleared(state), status: 'AUTHENTICATION_REQUIRED', errorCode: event.errorCode ?? 'AUTHENTICATION_REQUIRED' }
     case 'FORBIDDEN': return { ...cleared(state), status: 'FORBIDDEN_NO_ROUTE', errorCode: event.errorCode }
     case 'ERROR': return { ...cleared(state), status: event.retryable ? 'ERROR_RETRYABLE' : 'ERROR_FATAL', errorCode: event.errorCode }
-    case 'EXPIRED': return { ...cleared(state), status: 'ERROR_RETRYABLE', errorCode: 'PERMISSION_SNAPSHOT_EXPIRED' }
+    case 'EXPIRED':
+      if (event.snapshot && event.snapshot !== state.snapshot) return state
+      return { ...cleared(state), status: 'ERROR_RETRYABLE', errorCode: 'PERMISSION_SNAPSHOT_EXPIRED' }
   }
 }
